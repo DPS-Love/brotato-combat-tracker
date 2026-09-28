@@ -21,7 +21,7 @@ Currently aligned with game **1.1.15.4** (base game and the Abyssal Terrors DLC)
 
 ### Steam: subscribe on the Workshop (recommended)
 
-1. Search the Brotato Workshop for **Brotato Combat Tracker** and click **Subscribe**
+1. Open the [Workshop page](https://steamcommunity.com/sharedfiles/filedetails/?id=3809733696) (or search the Brotato Workshop for **Brotato Combat Tracker**) and click **Subscribe**
 2. Launch the game. Newly subscribed mods are enabled by default; you can toggle them under **Mods** in the main menu
 
 The Workshop keeps it up to date for you.

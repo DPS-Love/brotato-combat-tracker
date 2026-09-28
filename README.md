@@ -20,7 +20,7 @@
 
 ### Steam：创意工坊订阅（推荐）
 
-1. 在 Brotato 的创意工坊搜索 **Brotato Combat Tracker**，点「订阅」
+1. 打开[创意工坊页面](https://steamcommunity.com/sharedfiles/filedetails/?id=3809733696)（或在 Brotato 的创意工坊搜索 **Brotato Combat Tracker**），点「订阅」
 2. 启动游戏。新订阅的 Mod 默认启用，也可以在主菜单的「模组」里开关
 
 创意工坊会自动更新，不用管版本。

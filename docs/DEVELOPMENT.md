@@ -237,9 +237,9 @@ python tools/testpack/summary.py                                    # 再看一�
    上传工具每次上传都会用文件名覆盖标题，所以文件名固定、不带版本号
 2. 打开上传工具，日志第一行应当是 `Steam initialization OK!`
 3. 选 zip；第一次上传选预览图 `docs/workshop/preview.png`；标签选 **GUI** 和 **Utilities**
-4. Workshop ID：第一次留空（新建条目），之后填这个 ID（更新条目）。
-   新建时日志依次是 `Workshop item created successfully…`（ID 自动填进输入框，记下来）、
-   `Uploading workshop item with ID …`、`Item successfully uploaded.`
+4. Workshop ID 填本 Mod 的条目 [`3809733696`](https://steamcommunity.com/sharedfiles/filedetails/?id=3809733696)，
+   点 Upload，日志出现 `Uploading workshop item with ID …`、`Item successfully uploaded.` 就是传好了。
+   留空会另建一个新条目（日志先出现 `Workshop item created successfully…`，新 ID 自动填进输入框）
 5. 上传完到创意工坊页面：把 `docs/workshop/description.zh.txt` / `description.en.txt`（Steam 的 BBCode）
    贴进说明，写更新说明，确认没问题后把可见性改成公开
 

@@ -1,0 +1,21 @@
+{
+	"name": "CombatTracker",
+	"namespace": "DPSLove",
+	"version_number": "0.1.0",
+	"description": "伤害统计面板 / Damage meter — 按武器、物品和玩家拆分输出 / 承伤 / 治疗，按波次自动分段。只读统计，不修改游戏数值。兼容本地合作与 BrotatoOnline 联机。F9 浮窗 · F8 战斗记录 · F10 重置 · F11 导出 CSV",
+	"website_url": "https://github.com/DPS-Love/brotato-combat-tracker",
+	"dependencies": [],
+	"extra": {
+		"godot": {
+			"authors": ["DPS Love Project"],
+			"optional_dependencies": [],
+			"compatible_game_version": ["1.1.15.4"],
+			"compatible_mod_loader_version": ["6.3.0"],
+			"incompatibilities": [],
+			"load_before": [],
+			"tags": ["GUI", "Utilities"],
+			"config_schema": {},
+			"description_rich": ""
+		}
+	}
+}

@@ -227,16 +227,24 @@ python tools/testpack/summary.py                                    # 再看一�
 
 ### 创意工坊
 
-用游戏目录里自带的 `GodotWorkshopUtility.exe`（Steam 要开着、登录的是上传者的账号）：
+用游戏目录里自带的 `GodotWorkshopUtility.exe`（Steam 要开着、登录的是上传者的账号）。
+
+这个工具不经 Steam 启动，自己不知道是哪个游戏：游戏目录里要有一个 `steam_appid.txt`，内容是 Brotato 的 AppID
+`1942280`。没有的话日志第一行是 `Steam could not initialize: … No appID found …`，之后点 Upload
+只会停在 `creating new workshop item…`，Steam 上什么也不会建。这个文件留着不影响从 Steam 启动游戏。
 
 1. `python tools/package.py`，用 `build/workshop/` 下那个 zip。**它的文件名就是创意工坊标题**，
    上传工具每次上传都会用文件名覆盖标题，所以文件名固定、不带版本号
-2. 选 zip；第一次上传选预览图 `docs/workshop/preview.png`；标签选 **GUI** 和 **Utilities**
-3. Workshop ID：第一次留空（新建条目），之后填这个 ID（更新条目）。新建成功后记下 ID
-4. 上传完到创意工坊页面：把 `docs/workshop/description.zh.txt` / `description.en.txt`（Steam 的 BBCode）
+2. 打开上传工具，日志第一行应当是 `Steam initialization OK!`
+3. 选 zip；第一次上传选预览图 `docs/workshop/preview.png`；标签选 **GUI** 和 **Utilities**
+4. Workshop ID：第一次留空（新建条目），之后填这个 ID（更新条目）。
+   新建时日志依次是 `Workshop item created successfully…`（ID 自动填进输入框，记下来）、
+   `Uploading workshop item with ID …`、`Item successfully uploaded.`
+5. 上传完到创意工坊页面：把 `docs/workshop/description.zh.txt` / `description.en.txt`（Steam 的 BBCode）
    贴进说明，写更新说明，确认没问题后把可见性改成公开
 
-上传工具不设说明，也不设可见性；新条目默认不公开。
+上传工具不设说明，也不设可见性；新条目默认不公开。账号没接受过创意工坊法律协议的话，
+接受之前条目对别人不可见，条目页面上会有提示。
 
 ---
 

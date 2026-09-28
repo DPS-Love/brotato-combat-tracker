@@ -1,0 +1,22 @@
+# 每次推送都跑的检查：能打包（版本号一致）、core/ 没引用游戏的全局名字。
+# 端到端测试要用游戏本体，只能在装了游戏的机器上跑（tools/testpack/run_test.py），不在 CI 里。
+
+name: Check
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: core/ 纯净性
+        run: python tools/check_core.py
+      - name: 打包
+        run: python tools/package.py --out build

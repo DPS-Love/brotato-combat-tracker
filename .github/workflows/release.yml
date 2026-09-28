@@ -1,0 +1,67 @@
+# 打 v* 标签就发布一个 Release。
+#
+# 这个 Mod 是纯 GDScript，打包不需要游戏本体，CI 直接打包、建 Release、附上 zip。
+# 标签和 manifest.json / game/tracker.gd 里的版本号对不上就停下（package.py 核对）——
+# 与其发出去一个名字和内容不一致的包，不如在这里停下。
+#
+# 创意工坊那份要用游戏自带的上传工具、以上传者的 Steam 账号传，只能在本机做，见 docs/DEVELOPMENT.md。
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的标签（必须已经存在）'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 打包（核对版本号）
+        id: pkg
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          python tools/check_core.py
+          python tools/package.py --tag "$TAG" --out build
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # Release 标题就是标签名（vX.Y.Z）。说明取自标签注释（轻量标签则取被标记提交的信息），
+      # 去掉署名行，末尾附上与上一个标签的对比链接。
+      - name: 发布
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.pkg.outputs.tag }}
+        run: |
+          python - <<'EOF'
+          import os, subprocess
+          tag = os.environ["TAG"]
+          notes = subprocess.run(["git", "tag", "-l", "--format=%(contents)", tag],
+                                 capture_output=True, text=True).stdout
+          lines = [l for l in notes.splitlines() if not l.startswith(("Co-Authored-By:", "Signed-off-by:"))]
+          text = "\n".join(lines).rstrip()
+          prev = subprocess.run(["git", "describe", "--tags", "--abbrev=0", tag + "^"],
+                                capture_output=True, text=True).stdout.strip()
+          if prev:
+              text += "\n\n**Full Changelog**: https://github.com/%s/compare/%s...%s" % (
+                  os.environ["GITHUB_REPOSITORY"], prev, tag)
+          with open("release-notes.md", "w", encoding="utf-8") as f:
+              f.write(text + "\n")
+          EOF
+          gh release create "$TAG" "build/DPSLove-CombatTracker-$TAG.zip" --title "$TAG" --notes-file release-notes.md

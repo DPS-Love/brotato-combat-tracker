@@ -7,7 +7,8 @@ zip 里只有 mods-unpacked/DPSLove-CombatTracker/ 这一个目录（Mod Loader 
 本机打的包和 CI 发布的包可以直接比对哈希。
 
 创意工坊那份单独起名：游戏自带的上传工具（GodotWorkshopUtility）每次上传都拿 zip 的文件名当条目标题，
-所以文件名就是标题，而且不能带版本号，否则每次更新标题都变。
+所以文件名就是标题，而且不能带版本号，否则每次更新标题都变。在创意工坊页面上改了标题，WORKSHOP_TITLE 也要跟着改。
+build/workshop/ 里只留这一个 zip，免得上传时选到旧名字的那份。
 
 同时核对版本号：manifest.json 的 version_number 必须和 game/tracker.gd 里的 VERSION 一致；
 给了 --tag 时还要和标签（vX.Y.Z）一致。
@@ -30,7 +31,7 @@ MOD_DIR = os.path.join(REPO, "mods-unpacked", MOD_ID)
 INCLUDE_EXT = {".gd", ".json", ".png", ".txt", ".cfg"}
 EXTRA_FILES = {"LICENSE": os.path.join(REPO, "LICENSE")}
 FIXED_TIME = (2026, 1, 1, 0, 0, 0)
-WORKSHOP_TITLE = "Brotato Combat Tracker - DPS Meter 伤害统计"
+WORKSHOP_TITLE = "Brotato Combat Tracker - 伤害统计"
 
 
 def versions():
@@ -84,6 +85,9 @@ def main():
 
     workshop_dir = os.path.join(args.out, "workshop")
     os.makedirs(workshop_dir, exist_ok=True)
+    for name in os.listdir(workshop_dir):
+        if name.lower().endswith(".zip"):
+            os.remove(os.path.join(workshop_dir, name))
     workshop = os.path.join(workshop_dir, WORKSHOP_TITLE + ".zip")
     shutil.copyfile(out, workshop)
 

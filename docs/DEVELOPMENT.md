@@ -38,7 +38,7 @@ python tools/package.py
 ```
 
 产出 `build/DPSLove-CombatTracker-vX.Y.Z.zip`（Release / 手动安装）和
-`build/workshop/Brotato Combat Tracker - DPS Meter 伤害统计.zip`（创意工坊上传，内容相同）。
+`build/workshop/Brotato Combat Tracker - 伤害统计.zip`（创意工坊上传，内容相同）。
 zip 里只有 `mods-unpacked/DPSLove-CombatTracker/` 一个目录。时间戳固定、不压缩，同样的源码在任何机器上打出来都逐字节相同，
 本机打的包和 CI 发布的包可以直接比对哈希。
 
@@ -234,7 +234,8 @@ python tools/testpack/summary.py                                    # 再看一�
 只会停在 `creating new workshop item…`，Steam 上什么也不会建。这个文件留着不影响从 Steam 启动游戏。
 
 1. `python tools/package.py`，用 `build/workshop/` 下那个 zip。**它的文件名就是创意工坊标题**，
-   上传工具每次上传都会用文件名覆盖标题，所以文件名固定、不带版本号
+   上传工具每次上传都会用文件名覆盖标题，所以文件名固定、不带版本号。
+   在创意工坊页面上改了标题，要同步改 `tools/package.py` 的 `WORKSHOP_TITLE`，否则下次上传又被改回去
 2. 打开上传工具，日志第一行应当是 `Steam initialization OK!`
 3. 选 zip；第一次上传选预览图 `docs/workshop/preview.png`；标签选 **GUI** 和 **Utilities**
 4. Workshop ID 填本 Mod 的条目 [`3809733696`](https://steamcommunity.com/sharedfiles/filedetails/?id=3809733696)，

@@ -1,13 +1,14 @@
 """打发布包：
   build/DPSLove-CombatTracker-vX.Y.Z.zip          GitHub Release / 手动安装
-  build/workshop/<创意工坊标题>.zip                创意工坊上传（内容相同）
+  build/workshop/<创意工坊英文标题>.zip            创意工坊上传（内容相同）
 
 zip 里只有 mods-unpacked/DPSLove-CombatTracker/ 这一个目录（Mod Loader 要求的结构）。
 时间戳固定、不压缩（压缩结果随 zlib 版本而变），同样的源码在任何机器上打出来都逐字节相同，
 本机打的包和 CI 发布的包可以直接比对哈希。
 
-创意工坊那份单独起名：游戏自带的上传工具（GodotWorkshopUtility）每次上传都拿 zip 的文件名当条目标题，
-所以文件名就是标题，而且不能带版本号，否则每次更新标题都变。在创意工坊页面上改了标题，WORKSHOP_TITLE 也要跟着改。
+创意工坊那份单独起名：游戏自带的上传工具（GodotWorkshopUtility）每次上传都拿 zip 的文件名设置条目标题，
+但不指定语言，Steam 就记在英文下（没有单独标题的语言也显示英文标题；其他语言的标题、各语言的说明都不动）。
+所以文件名要和创意工坊页面上的英文标题一致，而且不能带版本号；页面上改了英文标题，WORKSHOP_TITLE 也要跟着改。
 build/workshop/ 里只留这一个 zip，免得上传时选到旧名字的那份。
 
 同时核对版本号：manifest.json 的 version_number 必须和 game/tracker.gd 里的 VERSION 一致；
@@ -31,7 +32,7 @@ MOD_DIR = os.path.join(REPO, "mods-unpacked", MOD_ID)
 INCLUDE_EXT = {".gd", ".json", ".png", ".txt", ".cfg"}
 EXTRA_FILES = {"LICENSE": os.path.join(REPO, "LICENSE")}
 FIXED_TIME = (2026, 1, 1, 0, 0, 0)
-WORKSHOP_TITLE = "Brotato Combat Tracker - 伤害统计"
+WORKSHOP_TITLE = "Brotato Combat Tracker - DPS Meter"
 
 
 def versions():

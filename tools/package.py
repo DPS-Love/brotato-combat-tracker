@@ -3,7 +3,8 @@
   build/workshop/<创意工坊标题>.zip                创意工坊上传（内容相同）
 
 zip 里只有 mods-unpacked/DPSLove-CombatTracker/ 这一个目录（Mod Loader 要求的结构）。
-时间戳固定，同样的源码打出来的 zip 逐字节相同。
+时间戳固定、不压缩（压缩结果随 zlib 版本而变），同样的源码在任何机器上打出来都逐字节相同，
+本机打的包和 CI 发布的包可以直接比对哈希。
 
 创意工坊那份单独起名：游戏自带的上传工具（GodotWorkshopUtility）每次上传都拿 zip 的文件名当条目标题，
 所以文件名就是标题，而且不能带版本号，否则每次更新标题都变。
@@ -70,12 +71,12 @@ def main():
 
     os.makedirs(args.out, exist_ok=True)
     out = os.path.join(args.out, "%s-v%s.zip" % (MOD_ID, manifest_version))
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as z:
         for rel, path in collect():
             with open(path, "rb") as f:
                 data = f.read()
             info = zipfile.ZipInfo(rel, FIXED_TIME)
-            info.compress_type = zipfile.ZIP_DEFLATED
+            info.compress_type = zipfile.ZIP_STORED
             info.external_attr = 0o644 << 16
             z.writestr(info, data)
     with open(out, "rb") as f:

@@ -39,7 +39,8 @@ python tools/package.py
 
 产出 `build/DPSLove-CombatTracker-vX.Y.Z.zip`（Release / 手动安装）和
 `build/workshop/Brotato Combat Tracker - DPS Meter 伤害统计.zip`（创意工坊上传，内容相同）。
-zip 里只有 `mods-unpacked/DPSLove-CombatTracker/` 一个目录，时间戳固定，同样的源码打出来逐字节相同。
+zip 里只有 `mods-unpacked/DPSLove-CombatTracker/` 一个目录。时间戳固定、不压缩，同样的源码在任何机器上打出来都逐字节相同，
+本机打的包和 CI 发布的包可以直接比对哈希。
 
 版本号有两处：`manifest.json` 的 `version_number` 和 `game/tracker.gd` 的 `VERSION`，`package.py` 会核对两者一致；
 给了 `--tag vX.Y.Z` 还要和标签一致。

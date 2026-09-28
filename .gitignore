@@ -1,0 +1,9 @@
+build/
+__pycache__/
+*.pyc
+
+# 游戏本体解出来的东西（反编译源码、资源）只在本机做参考，不入库
+reference/
+
+.vscode/
+.idea/

@@ -186,5 +186,5 @@ Building, automated tests, re-aligning after a game update and publishing to the
 
 This is an **unofficial fan project** for Brotato, not affiliated with or endorsed by the developer Blobfish.
 The game and its assets belong to their respective rights holders; this project only reads the game's observable
-runtime state for the player's own use and **contains and distributes no game assets** (the weapon icons and names
-on the panels are read from the game at runtime).
+runtime state for the player's own use. The mod package **contains and distributes no game assets** (the weapon icons
+and names on the panels are read from the game at runtime); the game screenshots in the docs are for illustration only.

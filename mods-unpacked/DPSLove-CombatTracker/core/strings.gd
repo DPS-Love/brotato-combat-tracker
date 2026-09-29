@@ -15,6 +15,22 @@ static func pick(zh: String, en: String) -> String:
 	return zh if chinese() else en
 
 
+static func _key_tag(key: String) -> String:
+	if key == "":
+		return ""
+	return pick("（%s）" % key, " (%s)" % key)
+
+
+static func _count(n: int) -> String:
+	var s = str(abs(n))
+	var out := ""
+	var i = s.length()
+	while i > 3:
+		out = "," + s.substr(i - 3, 3) + out
+		i -= 3
+	return ("-" if n < 0 else "") + s.substr(0, i) + out
+
+
 # ================================================================ 视图与分组
 
 static func view_label(v: int) -> String:
@@ -43,12 +59,28 @@ static func empty_hint(v: int) -> String:
 
 # ================================================================ 浮窗
 
-static func btn_log() -> String:
-	return pick("记录", "Log")
+static func tip_log(key: String) -> String:
+	return pick("战斗记录", "Combat log") + _key_tag(key)
 
 
-static func btn_reset() -> String:
-	return pick("重置", "Reset")
+static func tip_view() -> String:
+	return pick("切换：输出 / 承伤 / 治疗", "Switch: damage / taken / healing")
+
+
+static func tip_group() -> String:
+	return pick("切换：按来源 / 按玩家", "Switch: by source / by player")
+
+
+static func tip_reset(key: String) -> String:
+	return pick("重置当前统计", "Reset the current encounter") + _key_tag(key)
+
+
+static func tip_settings() -> String:
+	return pick("设置", "Settings")
+
+
+static func tip_close() -> String:
+	return pick("关闭", "Close")
 
 
 static func hits_count(n: int) -> String:
@@ -71,16 +103,8 @@ static func max_hit(v: String) -> String:
 	return pick("最大 " + v, "Max " + v)
 
 
-static func kills(n: int) -> String:
-	return pick("击杀 %d" % n, "%d kills" % n)
-
-
 static func more_cards(n: int) -> String:
 	return "+%d" % n
-
-
-static func remote_missing(player: String) -> String:
-	return pick("%s 没有数据（未装本 Mod？）" % player, "%s: no data (mod not installed?)" % player)
 
 
 # ================================================================ 分段标题
@@ -181,22 +205,47 @@ static func player_tag(p: int) -> String:
 	return "P%d" % (p + 1)
 
 
-# ================================================================ 战斗记录主面板
+# 环形图上并起来的那一段（一屏之外的、占比太小的项）
+static func other() -> String:
+	return pick("其他", "Other")
+
+
+# ================================================================ 战斗记录
 
 static func main_title() -> String:
-	return pick("Brotato Combat Tracker — 战斗记录", "Brotato Combat Tracker — Combat Log")
+	return pick("战斗记录", "Combat Log")
 
 
 static func _encounters_en(n: int) -> String:
 	return "%d encounter" % n if n == 1 else "%d encounters" % n
 
 
-static func live_session(n: int) -> String:
-	return pick("本局 · %d 段" % n, "This session · " + _encounters_en(n))
+static func tip_imported_chip(file: String) -> String:
+	return pick("正在看导入的日志 %s；点 × 回到本局" % file, "Showing the imported log %s; click × to go back" % file)
 
 
-static func imported_session(file: String, n: int) -> String:
-	return pick("导入 %s · %d 段" % [file, n], "Imported %s · %s" % [file, _encounters_en(n)])
+static func tip_back_to_live() -> String:
+	return pick("回到本局", "Back to this session")
+
+
+static func tip_import() -> String:
+	return pick("导入一份战斗日志，按当前版本重新解析", "Import a combat log and re-parse it with this version")
+
+
+static func tip_log_folder() -> String:
+	return pick("打开战斗日志所在的文件夹", "Open the combat log folder")
+
+
+static func tip_export() -> String:
+	return pick("把选中的这一段导出成 CSV", "Export the selected encounter as CSV")
+
+
+static func tip_page_up() -> String:
+	return pick("上一页", "Page up")
+
+
+static func tip_page_down() -> String:
+	return pick("下一页", "Page down")
 
 
 static func btn_import() -> String:
@@ -211,10 +260,6 @@ static func btn_export_csv() -> String:
 	return pick("导出 CSV", "Export CSV")
 
 
-static func btn_back_to_live() -> String:
-	return pick("回到本局", "Back to live")
-
-
 static func btn_cancel() -> String:
 	return pick("取消", "Cancel")
 
@@ -227,17 +272,17 @@ static func live_tag() -> String:
 	return pick("实时", "Live")
 
 
-static func live_hint() -> String:
-	return pick("实时更新中", "Updating live")
-
-
 static func dropped_hint(n: int) -> String:
 	return pick("更早的 %d 段在日志里" % n, "%d older in the log" % n)
 
 
-static func summary(outgoing: String, dps: String, taken: String, healing: String) -> String:
-	return pick("输出 %s（%s/s）   承伤 %s   治疗 %s" % [outgoing, dps, taken, healing],
-		"Damage %s (%s/s)   Taken %s   Healing %s" % [outgoing, dps, taken, healing])
+static func summary_stats(duration: String, outgoing: String, dps: String, taken: String, healing: String) -> String:
+	return pick("%s  ·  输出 %s（%s/s）  ·  承伤 %s  ·  治疗 %s" % [duration, outgoing, dps, taken, healing],
+		"%s  ·  Damage %s (%s/s)  ·  Taken %s  ·  Healing %s" % [duration, outgoing, dps, taken, healing])
+
+
+static func all_sources() -> String:
+	return pick("全部", "Everyone")
 
 
 static func col_name() -> String:
@@ -264,6 +309,10 @@ static func col_crit() -> String:
 	return pick("暴击", "Crit")
 
 
+static func col_crit_short() -> String:
+	return pick("暴击", "Crit")
+
+
 static func col_dodge() -> String:
 	return pick("闪避", "Dodge")
 
@@ -276,10 +325,6 @@ static func col_max() -> String:
 	return pick("最高", "Max")
 
 
-static func col_kills() -> String:
-	return pick("击杀", "Kills")
-
-
 static func col_top_source() -> String:
 	return pick("主要来源", "Top source")
 
@@ -288,12 +333,76 @@ static func peak(v: String) -> String:
 	return pick("峰值 %s/s" % v, "Peak %s/s" % v)
 
 
-static func chart_hint() -> String:
-	return pick("每秒数值 · 5 秒平滑", "Per second · 5 s smoothing")
+static func tip_mode_chart() -> String:
+	return pick("曲线与拆分", "Chart and breakdown")
 
 
-static func select_hint() -> String:
-	return pick("点上面表格里的一行看它的拆分", "Click a row above for its breakdown")
+static func tip_mode_events() -> String:
+	return pick("逐条事件", "Event list")
+
+
+static func events_header(who: String, view: String, n: int) -> String:
+	return pick("%s · %s · %s 条" % [who, view, _count(n)], "%s · %s · %s events" % [who, view, _count(n)])
+
+
+static func events_loading() -> String:
+	return pick("正在从日志读取这一段的事件…", "Reading this encounter's events from the log…")
+
+
+static func events_no_log() -> String:
+	return pick("战斗日志没有开，只能看实时这一段的事件", "Combat logging is off; only the live encounter has an event list")
+
+
+static func events_not_found() -> String:
+	return pick("日志里对不上这一段（日志可能不完整）", "This encounter does not match the log (the log may be incomplete)")
+
+
+static func events_empty() -> String:
+	return pick("这一段没有这类事件", "No events of this kind in this encounter")
+
+
+static func events_capped(n: int) -> String:
+	return pick("只保留了前 %s 条" % _count(n), "Only the first %s are kept" % _count(n))
+
+
+static func load_failed(why: String) -> String:
+	return pick("读取失败：" + why, "Loading failed: " + why)
+
+
+static func col_time() -> String:
+	return pick("时间", "Time")
+
+
+static func col_source() -> String:
+	return pick("来源", "Source")
+
+
+static func col_target() -> String:
+	return pick("目标", "Target")
+
+
+static func col_victim() -> String:
+	return pick("承受者", "Victim")
+
+
+static func col_recipient() -> String:
+	return pick("对象", "Recipient")
+
+
+static func col_amount() -> String:
+	return pick("数值", "Amount")
+
+
+static func col_form() -> String:
+	return pick("形式", "Form")
+
+
+static func col_result() -> String:
+	return pick("结果", "Result")
+
+
+static func crit_mark() -> String:
+	return pick("暴", "Crit")
 
 
 static func pick_log() -> String:
@@ -336,14 +445,10 @@ static func export_failed() -> String:
 	return pick("导出失败，详见日志", "Export failed, see the log")
 
 
-static func overkill_on() -> String:
-	return pick("含溢出", "incl. overkill")
+# ================================================================ 拆分窗口
 
-
-# ================================================================ 明细窗口
-
-static func detail_title(name: String, view: String, segment: String) -> String:
-	return "%s — %s  ·  %s" % [name, view, segment]
+static func detail_title(name: String, view: String) -> String:
+	return "%s  ·  %s" % [name, view]
 
 
 static func tab_label(dim: String) -> String:
@@ -374,6 +479,199 @@ static func no_data_in_segment() -> String:
 
 static func more_items(n: int) -> String:
 	return pick("…另有 %d 项" % n, "…%d more" % n)
+
+
+# ================================================================ 设置
+
+static func settings_title() -> String:
+	return pick("设置", "Settings")
+
+
+static func tab_display() -> String:
+	return pick("界面", "Display")
+
+
+static func tab_tracking() -> String:
+	return pick("统计", "Tracking")
+
+
+static func tab_logs() -> String:
+	return pick("日志", "Logs")
+
+
+static func tab_hotkeys() -> String:
+	return pick("热键", "Hotkeys")
+
+
+static func tab_colors() -> String:
+	return pick("颜色", "Colours")
+
+
+static func restart_tag() -> String:
+	return pick("重启后生效", "Needs restart")
+
+
+static func settings_footer(path: String) -> String:
+	return pick("改动自动保存到 " + path, "Saved automatically to " + path)
+
+
+static func set_ui_scale() -> String:
+	return pick("界面缩放", "UI scale")
+
+
+static func set_ui_scale_desc() -> String:
+	return pick("所有窗口一起缩放，松手后生效", "Scales every window; applies when you let go")
+
+
+static func set_skew() -> String:
+	return pick("卡片斜切", "Card slant")
+
+
+static func set_skew_desc() -> String:
+	return pick("浮窗色块的斜切角度，0 为直角", "Slant of the overlay's colour blocks; 0 is square")
+
+
+static func set_bg() -> String:
+	return pick("窗口背景", "Window background")
+
+
+static func set_bg_desc() -> String:
+	return pick("浮窗、拆分窗口和战斗记录背景的浓淡。浮窗只在鼠标移上去时显示背景和按钮",
+		"Background opacity of the overlay, breakdown and combat log windows. The overlay shows its background and buttons only while the cursor is on it")
+
+
+static func set_max_cards() -> String:
+	return pick("浮窗卡片数", "Overlay cards")
+
+
+static func set_max_cards_desc() -> String:
+	return pick("浮窗最多显示几张卡片，其余计入标题栏的「+n」", "Most cards on the overlay; the rest are counted as +n in its title")
+
+
+static func set_icons() -> String:
+	return pick("显示图标", "Show icons")
+
+
+static func set_icons_desc() -> String:
+	return pick("浮窗卡片上显示武器 / 物品图标", "Weapon and item icons on the overlay cards")
+
+
+static func set_shop() -> String:
+	return pick("商店里显示浮窗", "Overlay in the shop")
+
+
+static func set_shop_desc() -> String:
+	return pick("商店里也显示浮窗（显示刚打完的那一波）；默认不显示，免得挡住物品说明",
+		"Also show the overlay in the shop (the wave just finished); off by default so it doesn't cover item descriptions")
+
+
+static func set_overkill() -> String:
+	return pick("计入溢出伤害", "Count overkill")
+
+
+static func set_overkill_desc() -> String:
+	return pick("打死怪时超出它剩余血量的部分也算。默认不算，和游戏里武器的伤害统计一致",
+		"Also count damage beyond an enemy's remaining HP. Off by default, matching the game's own weapon damage counters")
+
+
+static func set_trees() -> String:
+	return pick("统计树木", "Count trees")
+
+
+static func set_trees_desc() -> String:
+	return pick("对树木的伤害也算进输出", "Include damage dealt to trees")
+
+
+static func set_history() -> String:
+	return pick("保留段数", "Encounters kept")
+
+
+static func set_history_desc() -> String:
+	return pick("战斗记录里本局最多留多少段，更早的仍在日志里，可以导入",
+		"How many of this session's encounters the combat log keeps; older ones stay in the log and can be imported")
+
+
+static func set_share() -> String:
+	return pick("联机互传统计", "Share stats online")
+
+
+static func set_share_desc() -> String:
+	return pick("BrotatoOnline 联机时和装了本 Mod 的队友互传各自的统计；关掉则只看得到自己",
+		"In BrotatoOnline co-op, exchange stats with teammates who also run this mod; when off you only see yourself")
+
+
+static func set_log_events() -> String:
+	return pick("记录战斗日志", "Write combat logs")
+
+
+static func set_log_events_desc() -> String:
+	return pick("每局一份，可导入重新解析；已经结束的段靠它看逐条事件",
+		"One per session, importable; ended encounters read their event list from it")
+
+
+static func set_retention() -> String:
+	return pick("日志保留", "Keep logs for")
+
+
+static func set_retention_desc() -> String:
+	return pick("超过的在游戏启动时删除", "Older logs are deleted when the game starts")
+
+
+static func btn_open_log_folder() -> String:
+	return pick("打开日志目录", "Open log folder")
+
+
+static func key_toggle() -> String:
+	return pick("显示 / 隐藏浮窗", "Show / hide the overlay")
+
+
+static func key_main() -> String:
+	return pick("打开战斗记录", "Open the combat log")
+
+
+static func key_reset() -> String:
+	return pick("重置当前统计", "Reset the current encounter")
+
+
+static func key_export() -> String:
+	return pick("导出当前段的 CSV", "Export the current encounter as CSV")
+
+
+static func key_press() -> String:
+	return pick("按下新按键…", "Press a key…")
+
+
+static func key_none() -> String:
+	return pick("未设置", "None")
+
+
+static func key_hint() -> String:
+	return pick("点按钮，再按下新的按键。Esc 取消，Delete 清除", "Click a button, then press a key. Esc cancels, Delete clears")
+
+
+static func colors_hint() -> String:
+	return pick("多人时各玩家在卡片、表格和曲线上的颜色；恢复默认就用游戏里的玩家颜色",
+		"Each player's colour on the cards, tables and charts in co-op; reset to use the game's player colours")
+
+
+static func tip_reset_color() -> String:
+	return pick("恢复默认", "Reset to default")
+
+
+static func player_name(p: int) -> String:
+	return pick("玩家 %d" % (p + 1), "Player %d" % (p + 1))
+
+
+static func segments(n: int) -> String:
+	if n <= 0:
+		return pick("不限", "All")
+	return pick("%d 段" % n, "%d" % n)
+
+
+static func days(n: int) -> String:
+	if n <= 0:
+		return pick("永久", "Forever")
+	return pick("%d 天" % n, "%d days" % n)
 
 
 # ================================================================ CSV

@@ -29,6 +29,7 @@ const UiRoot = preload("../ui/ui_root.gd")
 const EMPTY_HASH = 5381      # Keys.empty_hash
 const SYNC_INTERVAL = 2.0
 const EXPLOSION_LINK_SECONDS = 1.0
+const MAX_LIVE_EVENTS = 30000
 
 var config = null
 var names = null
@@ -38,6 +39,12 @@ var session = null
 var writer = null
 var overkill := false
 var include_trees := false
+# 进行中那一段的伤害 / 承伤 / 治疗事件，战斗记录的「逐条事件」看实时那段时用；
+# 结束的段从日志里读。换段时换一个新数组（gen 加一），界面据此知道要重新筛
+var live_events := []
+var live_events_enc = null
+var live_events_gen := 0
+var live_events_capped := false
 # 自测用：伤害回调累计耗时（微秒）与调用次数
 var cost_usec := 0
 var cost_calls := 0
@@ -68,15 +75,13 @@ func _ready() -> void:
 
 	config = Config.new()
 	config.load_or_create(DATA_DIR.plus_file("config.cfg"))
-	overkill = config.value("CountOverkill")
-	include_trees = config.value("IncludeTrees")
 
 	names = Names.new()
 	names.config = config
 
 	session = Model.BctSession.new()
 	session.started_unix = OS.get_unix_time()
-	session.history_size = config.value("HistorySize")
+	apply_config()
 
 	_maintain_logs()
 	if config.value("LogEvents"):
@@ -151,6 +156,14 @@ func _process(delta: float) -> void:
 # ===========================================================================
 # 路径与信息
 # ===========================================================================
+
+# 设置界面改了配置：统计口径、保留段数立即生效（热键、颜色、界面由界面自己读）
+func apply_config() -> void:
+	overkill = config.value("CountOverkill")
+	include_trees = config.value("IncludeTrees")
+	session.history_size = config.value("HistorySize")
+	session.trim()
+
 
 func log_dir() -> String:
 	return DATA_DIR.plus_file("logs")
@@ -338,6 +351,17 @@ func _emit(ev: Array) -> void:
 	if writer != null:
 		writer.write(ev)
 	_sync_dirty = true
+	var k = ev[0]
+	if k == "D" or k == "T" or k == "H":
+		if session.current != live_events_enc:
+			live_events = []
+			live_events_enc = session.current
+			live_events_gen += 1
+			live_events_capped = false
+		if live_events.size() < MAX_LIVE_EVENTS:
+			live_events.append(ev)
+		else:
+			live_events_capped = true
 
 
 # ===========================================================================

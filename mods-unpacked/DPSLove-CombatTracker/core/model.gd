@@ -105,6 +105,32 @@ static func sorted_dim(stats, dim: String, overkill: bool) -> Array:
 	return list
 
 
+# 这个视图里所有玩家加起来的一条统计：战斗记录的表格里没选中任何行时，拆分区和环形图看它。
+# 由各玩家的汇总合并而来，维度和按玩家看时一样
+static func everyone(enc, view: int) -> Object:
+	if enc == null:
+		return null
+	var list = enc.by_player[view].values()
+	if list.empty():
+		return null
+	var a = BctStats.new()
+	a.key = "*"
+	for s in list:
+		a.total += s.total
+		a.eff += s.eff
+		a.hits += s.hits
+		a.crits += s.crits
+		a.kills += s.kills
+		if s.max_hit > a.max_hit:
+			a.max_hit = s.max_hit
+		a.merge_series(a.series, s.series)
+		a.merge_series(a.series_eff, s.series_eff)
+		for dim in s.dims.keys():
+			for item in s.dims[dim].keys():
+				a.merge_dim_row(dim, item, s.dims[dim][item])
+	return a
+
+
 class BctSorter extends Reference:
 	var overkill := false
 

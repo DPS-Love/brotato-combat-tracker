@@ -1,7 +1,7 @@
 extends CanvasLayer
 
-# 界面根节点：一个压在游戏界面之上的 CanvasLayer，下面挂浮窗、明细窗口、战斗记录主面板；
-# 处理热键；游戏暂停时照常响应（暂停时正好翻记录）。
+# 界面根节点：一个压在游戏界面之上的 CanvasLayer，下面挂浮窗、拆分窗口、战斗记录、设置四个窗口，
+# 外加一层悬停提示；处理热键和热键录制；游戏暂停时照常响应（暂停时正好翻记录、改设置）。
 #
 # 浮窗只在波次进行中出现（配置打开时商店里也显示刚打完的那一波），菜单里不挡路。
 # F9 是玩家自己的开关，两者同时满足才显示。
@@ -10,36 +10,54 @@ const UiSkin = preload("skin.gd")
 const Overlay = preload("overlay.gd")
 const DetailWindow = preload("detail_window.gd")
 const MainPanel = preload("main_panel.gd")
+const SettingsWindow = preload("settings_window.gd")
+const Tooltip = preload("tooltip.gd")
 
 const LAYER = 110
+const HOTKEYS = ["ToggleOverlay", "ToggleMainPanel", "Reset", "ExportCsv"]
 
 var tracker = null
 var skin = null
 var overlay = null
 var detail = null
 var main_panel = null
+var settings = null
+var tooltip = null
 
 var overlay_wanted := true
 var force_overlay := false   # 自测截图用：不看场合，一直显示
+# 设置里拖「窗口背景」滑杆时的预览值：拖着的时候各窗口按它画，松手才写进配置；< 0 表示没在预览
+var preview_opacity := -1.0
+# 正在给哪个热键录新按键（配置项名）；空 = 没在录
+var capturing := ""
 var _keys := {}
 var _cursor_forced := false
+var _last_mouse := Vector2()
 
 
 func _ready() -> void:
 	layer = LAYER
 	pause_mode = PAUSE_MODE_PROCESS
 	skin = UiSkin.new()
+	skin.set_ui_scale(float(tracker.config.value("UiScale")))
 	overlay_wanted = bool(tracker.config.value("ShowOverlay"))
 
 	overlay = _window(Overlay.new(), "Overlay")
 	detail = _window(DetailWindow.new(), "Detail")
 	main_panel = _window(MainPanel.new(), "MainPanel")
+	settings = _window(SettingsWindow.new(), "Settings")
 
-	for action in ["ToggleOverlay", "ToggleMainPanel", "Reset", "ExportCsv"]:
-		var code = OS.find_scancode_from_string(str(tracker.config.value(action)))
-		if code == 0:
-			code = OS.find_scancode_from_string(_default_key(action))
-		_keys[action] = code
+	# 提示单独一层，永远压在窗口上面（窗口被点到时会挪到最后）
+	var tip_layer = CanvasLayer.new()
+	tip_layer.layer = LAYER + 1
+	tip_layer.name = "TipLayer"
+	add_child(tip_layer)
+	tooltip = Tooltip.new()
+	tooltip.skin = skin
+	tooltip.name = "Tooltip"
+	tip_layer.add_child(tooltip)
+
+	reload_keys()
 
 
 func _window(w, name: String):
@@ -49,6 +67,23 @@ func _window(w, name: String):
 	w.tracker = tracker
 	add_child(w)
 	return w
+
+
+func windows() -> Array:
+	return [overlay, detail, main_panel, settings]
+
+
+# 配置里的热键 → 键码。空着的就是不用热键；写错了的退回默认
+func reload_keys() -> void:
+	_keys.clear()
+	for action in HOTKEYS:
+		var s = str(tracker.config.value(action)).strip_edges()
+		if s == "":
+			continue
+		var code = OS.find_scancode_from_string(s)
+		if code == 0:
+			code = OS.find_scancode_from_string(_default_key(action))
+		_keys[action] = code
 
 
 static func _default_key(action: String) -> String:
@@ -63,6 +98,10 @@ static func _default_key(action: String) -> String:
 			return "F11"
 
 
+func key_label(action: String) -> String:
+	return str(tracker.config.value(action)).strip_edges()
+
+
 func _process(_delta: float) -> void:
 	var want = overlay_wanted and (force_overlay or _overlay_context())
 	if overlay.visible != want:
@@ -71,11 +110,15 @@ func _process(_delta: float) -> void:
 	if not want and detail.visible:
 		detail.close()
 	_update_cursor()
+	var tip = ""
+	if _hovered != null and is_instance_valid(_hovered) and _hovered.visible:
+		tip = _hovered.tip_now()
+	tooltip.show_tip(tip, _last_mouse)
 
 
 # 波次进行中、游戏没暂停时显示；配置打开时商店里也显示（有刚打完的那一波可看）。
 # 暂停菜单、收波后的升级选择都铺在同一片地方，浮窗会盖住并吃掉那里的点击，这时让开；
-# 要看记录按 F8，主面板哪里都能开
+# 要看记录按 F8，战斗记录哪里都能开
 func _overlay_context() -> bool:
 	if tracker.is_live():
 		return not get_tree().paused
@@ -86,16 +129,59 @@ func _overlay_context() -> bool:
 	return f.find("shop") >= 0 and bool(tracker.config.value("ShowInShop")) and tracker.session.encounters.size() > 0
 
 
-# 游戏在战斗里会把鼠标藏起来（手柄 / 键盘操作、多人时一直藏）。主面板开着时把鼠标放出来，
+# 游戏在战斗里会把鼠标藏起来（手柄 / 键盘操作、多人时一直藏）。战斗记录或设置开着时把鼠标放出来，
 # 关掉后交还给游戏——游戏每帧都会按自己的规则重新设置，不用我们恢复
 func _update_cursor() -> void:
-	if main_panel.visible:
+	if main_panel.visible or settings.visible:
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_HIDDEN:
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 			_cursor_forced = true
 	elif _cursor_forced:
 		_cursor_forced = false
 
+
+# ---- 给窗口用的 ----
+
+func opacity() -> float:
+	if preview_opacity >= 0.0:
+		return preview_opacity
+	return clamp(float(tracker.config.value("BackgroundOpacity")), 0.0, 1.0)
+
+
+func is_hovered(w) -> bool:
+	return _hovered == w or (_captured == w)
+
+
+func toggle_main() -> void:
+	main_panel.toggle()
+
+
+func open_settings() -> void:
+	settings.open()
+
+
+func set_ui_scale(v: float) -> void:
+	tracker.config.put("UiScale", stepify(clamp(v, 0.5, 2.5), 0.05))
+	skin.set_ui_scale(float(tracker.config.value("UiScale")))
+	for w in windows():
+		w.apply_scale()
+
+
+func mark_all_dirty() -> void:
+	for w in windows():
+		w.mark_dirty()
+
+
+func begin_capture(action: String) -> void:
+	capturing = action
+
+
+func cancel_capture() -> void:
+	capturing = ""
+	settings.mark_dirty()
+
+
+# ---- 输入 ----
 
 # 鼠标：自己分发，不走 Godot 的界面分发。
 #   - 界面分发按节点在树里的先后找控件，不看 CanvasLayer 层级，会先落到游戏场景铺满全屏的容器上
@@ -108,18 +194,23 @@ var _hovered = null
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouse:
+		_last_mouse = event.position
 		_route_mouse(event)
 		return
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
+	if capturing != "":
+		_capture_key(event)
+		get_tree().set_input_as_handled()
+		return
 	var code = event.scancode
-	if code == _keys.get("ToggleOverlay"):
+	if code == _keys.get("ToggleOverlay", -1):
 		overlay_wanted = not overlay_wanted
-	elif code == _keys.get("ToggleMainPanel"):
+	elif code == _keys.get("ToggleMainPanel", -1):
 		main_panel.toggle()
-	elif code == _keys.get("Reset"):
+	elif code == _keys.get("Reset", -1):
 		tracker.reset_current()
-	elif code == _keys.get("ExportCsv"):
+	elif code == _keys.get("ExportCsv", -1):
 		var enc = overlay.current_encounter()
 		var path = tracker.export_csv(enc, "live")
 		if path != "":
@@ -128,6 +219,21 @@ func _input(event: InputEvent) -> void:
 	else:
 		return
 	get_tree().set_input_as_handled()
+
+
+# 录热键：Esc 取消，Delete / Backspace 清空（不用热键），其余的键就是新热键
+func _capture_key(event: InputEventKey) -> void:
+	var code = event.scancode
+	if code == KEY_ESCAPE:
+		cancel_capture()
+		return
+	var value = ""
+	if code != KEY_DELETE and code != KEY_BACKSPACE:
+		value = OS.get_scancode_string(code)
+	tracker.config.put(capturing, value)
+	tracker.config.save()
+	reload_keys()
+	cancel_capture()
 
 
 func _window_at(p: Vector2):
@@ -152,7 +258,7 @@ func _route_mouse(event: InputEventMouse) -> void:
 		return
 	if event is InputEventMouseMotion:
 		target.pointer_motion(p)
-		# 移动照样给游戏（鼠标瞄准时光标划过浮窗不能卡住准星），只有按住拖窗口时才吃掉
+		# 移动照样给游戏（鼠标瞄准时光标划过浮窗不能卡住准星），只有按住拖动时才吃掉
 		if _captured != null:
 			get_tree().set_input_as_handled()
 		return

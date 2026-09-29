@@ -3,13 +3,14 @@ extends Reference
 # 配置文件：user://CombatTracker/config.cfg
 # （Windows 上是 %APPDATA%\Brotato\CombatTracker\config.cfg）
 #
-# 第一次启动时生成，每项都带中英说明。改完重启游戏生效；面板位置由面板自己写回。
+# 第一次启动时生成，每项都带中英说明。游戏里的设置界面改动立即生效并写回这里；
+# 直接改文件要重启游戏。窗口位置由窗口自己写回。
 # 缺项自动补上默认值，认不出来的值按默认值处理，不会因为改坏了一项就整个失效。
 
 const ENTRIES = [
 	# [节, 键, 默认值, 中文说明, English]
-	["Hotkeys", "ToggleOverlay", "F9", "显示 / 隐藏浮窗", "Show / hide the overlay"],
-	["Hotkeys", "ToggleMainPanel", "F8", "打开 / 关闭战斗记录主面板", "Open / close the combat log window"],
+	["Hotkeys", "ToggleOverlay", "F9", "显示 / 隐藏浮窗；留空为不用热键", "Show / hide the overlay; empty for no hotkey"],
+	["Hotkeys", "ToggleMainPanel", "F8", "打开 / 关闭战斗记录", "Open / close the combat log window"],
 	["Hotkeys", "Reset", "F10", "重置当前统计（旧的一段收进战斗记录）", "Reset the current encounter (the old one moves to the combat log)"],
 	["Hotkeys", "ExportCsv", "F11", "把当前这一段导出成 CSV", "Export the current encounter as a CSV"],
 
@@ -17,24 +18,29 @@ const ENTRIES = [
 	["Display", "ShowInShop", false,
 		"商店里也显示浮窗（显示刚打完的那一波）；默认不显示，免得挡住物品说明",
 		"Also show the overlay in the shop (it shows the wave just finished); off by default so it doesn't cover item descriptions"],
-	["Display", "UiScale", 1.0, "面板缩放（0.5 – 2.5）", "Panel scale (0.5 – 2.5)"],
+	["Display", "UiScale", 1.0, "界面缩放（0.5 – 2.5）", "UI scale (0.5 – 2.5)"],
 	["Display", "SkewDegrees", -30.0, "卡片斜切角度，0 为普通矩形", "Skew angle of the cards; 0 for plain rectangles"],
+	["Display", "BackgroundOpacity", 0.9,
+		"浮窗、拆分窗口和战斗记录背景的不透明度（0 – 1）；浮窗只在鼠标移上去时显示背景和按钮",
+		"Background opacity of the overlay, breakdown and combat log windows (0 – 1); the overlay shows its background and buttons only while the cursor is on it"],
 	["Display", "MaxCards", 5, "浮窗最多显示几张卡片（1 – 12），其余计入标题栏的「+n」", "Max cards on the overlay (1 – 12); the rest are counted as +n in the title bar"],
 	["Display", "ShowIcons", true, "卡片上显示武器 / 物品图标", "Show weapon / item icons on the cards"],
 	["Display", "OverlayX", 12.0, "浮窗位置（拖动后自动保存）", "Overlay position (saved when dragged)"],
 	["Display", "OverlayY", 200.0, "", ""],
-	["Display", "MainPanelX", 440.0, "主面板位置", "Combat log window position"],
+	["Display", "MainPanelX", 440.0, "战斗记录窗口位置", "Combat log window position"],
 	["Display", "MainPanelY", 150.0, "", ""],
-	["Display", "DetailX", 12.0, "明细窗口位置", "Detail window position"],
+	["Display", "DetailX", 12.0, "拆分窗口位置", "Breakdown window position"],
 	["Display", "DetailY", 470.0, "", ""],
+	["Display", "SettingsX", 560.0, "设置窗口位置", "Settings window position"],
+	["Display", "SettingsY", 240.0, "", ""],
 
 	["Stats", "CountOverkill", false,
 		"伤害计入溢出（打死怪时超出剩余血量的部分）。默认不计，与游戏里武器伤害统计的口径一致",
 		"Count overkill (damage beyond the target's remaining HP). Off by default, matching the game's own weapon damage counters"],
 	["Stats", "IncludeTrees", false, "统计对树木的伤害", "Count damage dealt to trees"],
-	["Stats", "HistorySize", 200, "主面板里本局保留多少段，更早的仍在日志里；0 为不限", "How many encounters the combat log window keeps (older ones stay in the log file); 0 for no limit"],
+	["Stats", "HistorySize", 200, "战斗记录里本局保留多少段，更早的仍在日志里；0 为不限", "How many encounters the combat log window keeps (older ones stay in the log file); 0 for no limit"],
 
-	["Log", "LogEvents", true, "写战斗日志；关掉的话主面板只有本局的数据", "Write combat logs; when off, the combat log window only has this session"],
+	["Log", "LogEvents", true, "写战斗日志；关掉的话战斗记录只有本局的数据，结束的段也看不了逐条事件", "Write combat logs; when off, the combat log window only has this session and ended encounters have no event list"],
 	["Log", "LogRetentionDays", 30, "战斗日志保留天数，0 为永久保留", "Days to keep combat logs; 0 keeps them forever"],
 
 	["Online", "ShareStats", true,
@@ -125,7 +131,8 @@ func save() -> void:
 		d.make_dir_recursive(dir)
 	var lines := PoolStringArray()
 	lines.append("; Brotato Combat Tracker")
-	lines.append("; 改完重启游戏生效 / Restart the game after editing")
+	lines.append("; 游戏里的设置界面改动立即生效；直接改这个文件要重启游戏")
+	lines.append("; Changes made in the in-game settings apply at once; restart the game after editing this file")
 	var section := ""
 	for e in ENTRIES:
 		if e[0] != section:

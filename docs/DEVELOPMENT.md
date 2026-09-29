@@ -15,7 +15,7 @@ mods-unpacked/DPSLove-CombatTracker/   Mod 本体，发布包里就是这个目�
 ├── extensions/…/player.gd      治疗归因（唯一的脚本扩展）
 ├── core/                       纯 GDScript：模型、解析器、日志读写、配置、文案、CSV、数字格式
 ├── game/                       和游戏打交道：tracker（挂钩、归因、分段）、names（名字 / 颜色 / 图标）、net_sync（联机）
-└── ui/                         浮窗、明细窗口、战斗记录主面板，全部自绘
+└── ui/                         浮窗、拆分窗口、战斗记录、设置，全部自绘；skin 是配色 / 字体 / 画法
 tools/
 ├── package.py                  打包，核对版本号
 ├── pck.py / gdc.py             解包游戏、把编译过的脚本还原成源码（对齐用）
@@ -56,9 +56,9 @@ Unit.took_damage(unit, value, …, args, …) ─► 归因 ──► D（对敌
 player.gd 扩展 on_healing_effect ─────────► H（治疗）
 main._cleaning_up 置真 / 离开战斗场景 ─────► W end
 
-每个事件 ──► Parser（本局会话）──► 浮窗 / 主面板
+每个事件 ──► Parser（本局会话）──► 浮窗 / 战斗记录
          └─► LogWriter ──► logs/bct-*.bctlog.gz
-导入：LogReader ──► Parser（新会话）──► 主面板
+导入：LogReader ──► Parser（新会话）──► 战斗记录
 ```
 
 伤害走游戏的信号，而不是给 `unit.gd` / `enemy.gd` 装脚本扩展：信号是游戏自己的稳定接口，
@@ -141,18 +141,37 @@ Mod Loader 重载全部子类。唯一的扩展是 `player.gd`（治疗归因，
 
 ### 界面
 
-- 三个窗口都是整窗自绘的 `Control`（`ui/window_base.gd`），绘制时顺手登记点击区——和 TBH Combat Tracker 的 IMGUI 写法一一对应。
+配色、版式、交互照搬 TBH Combat Tracker v0.4 的界面：深色圆角窗口、图标按钮和悬停提示，浮窗平时只有描边的字和卡片，
+鼠标移上去才淡入背景和按钮；拆分表和环形图互相高亮，环上一屏之外的小项并成「其他」。
+
+- 四个窗口（浮窗、拆分、战斗记录、设置）都是整窗自绘的 `Control`（`ui/window_base.gd`），绘制时顺手登记点击区。
+  版式常量直接用 TBH 的界面单位（和它的源码一一对应），窗口整体按 `skin.scale` 缩放：
+  1.3 × `UiScale`，1.3 是 Brotato 的 1080p 画面相对 TBH（桌面分辨率、10–13 号字）的放大倍数。
   不用 `Button` 等内置控件：它们会抢键盘 / 手柄焦点，和游戏的焦点导航打架；焦点一律 `FOCUS_NONE`
+- 画法：圆角块、窗口底板和阴影用 `StyleBoxFlat`（引擎自带抗锯齿）；斜切色块、环形图、图标的线条在 GDScript 里拼成
+  三角形网格（`ui/aa_mesh.gd`：每条边外侧铺一圈一像素宽的羽化带，和 TBH 的 MeshBuilder 同一做法）；曲线用引擎的抗锯齿折线。
+  图标照着 Segoe Fluent Icons 的字形用线条画（`ui/icons.gd`），各平台一样，网格按大小和颜色缓存
+- 字：游戏自带的思源黑体（Noto Sans SC / TC / JP / KR，按游戏语言挑主字体）按缩放后的字号现建，
+  画字时用 `draw_set_transform` 把窗口的缩放抵消掉、起点对齐整像素，放大缩小都不糊。
+  游戏只带了 Medium 一种字重，粗体是同一行错开 0.6 像素再画一遍；浮窗的描边字用 `DynamicFont.outline_size`
+- 会滚动的列表（分段、拆分表、图例、逐条事件、导入列表）和曲线各是一块子画布（`ui/clip_pane.gd`）：
+  列表裁掉视口外的半行、平滑滚动（`ui/scroll.gd`），曲线数据没变就不重画
 - **鼠标不走 Godot 的界面分发**，由 `ui_root` 在 `_input` 里自己分发（窗口的 `mouse_filter` 都是 `IGNORE`）。原因有二：
   Godot 3 找鼠标下的控件时按节点在树里的先后，不看 `CanvasLayer` 的层级，点击会先落到游戏场景铺满全屏的容器上；
   多人时游戏的手柄焦点模拟器（`FocusEmulator`）在 `_input` 里把鼠标事件全部标记为已处理，界面根本收不到。
   界面的 `CanvasLayer` 挂在**根节点下、排在最后**（每次换场景挪回最后），`_input` 按树的逆序调用，所以最先轮到它：
   落在窗口上的点击和滚轮交给窗口并吃掉，鼠标移动照样放给游戏（鼠标瞄准时光标划过浮窗不会卡住准星），
-  按住拖窗口期间事件一直交给按下的那个窗口
+  按住拖窗口、拖滑杆期间事件一直交给按下的那个窗口。热键录制也在这里截键盘
 - 浮窗只在波次进行中、游戏没暂停时显示，免得盖住暂停菜单和收波后的升级选择并吃掉那里的点击
-- 字体用游戏自带的思源黑体（Noto Sans SC / TC / JP / KR）现建，描边字用 `DynamicFont.outline_size`
-- 配色、版式常量来自 TBH Combat Tracker（按 1080p 放大约 1.3 倍）；主面板里按来源分组时色条和曲线用调色板按名次配色，
-  因为同品质的武器颜色一样，曲线会分不开
+- 窗口背景的不透明度默认 0.9（TBH 是 0.7）：战斗记录多半是在暂停菜单、升级选择、商店上面打开的，那些画面满屏是字，
+  0.7 会透出来
+- 战斗记录里按来源分组时色条和曲线用调色板按名次配色，因为同品质的武器颜色一样，曲线会分不开。
+  表格里没选中任何行时，拆分看全部玩家加起来的那一条（`model.everyone`），维度和按玩家看时一样
+- 逐条事件：进行中那段的伤害 / 承伤 / 治疗事件由统计节点在内存里留着（最多 3 万条）；
+  结束的段在后台线程里把本局日志重新解析到那一段为止（`core/event_pages.gd`），用段的序号和波次核对是不是同一段。
+  联机时队友只传汇总的快照，逐条事件里只有本机玩家的
+- 设置窗口改的是同一份 `config.cfg`，改完立即写回；统计口径（溢出、树木、保留段数）由 `tracker.apply_config()` 当场生效，
+  战斗日志的开关和保留天数只在启动时读，标着「重启后生效」
 
 ---
 
@@ -166,26 +185,35 @@ Mod Loader 重载全部子类。唯一的扩展是 `player.gd`（治疗归因，
 - `run_test.py` 打 Mod 包，用 `Brotato.exe --main-pack <测试包> --mods-path <目录> --audio-driver Dummy` 启动，
   等测试驱动跑完自动退出，汇总结果、截图和日志里的脚本错误
 - 测试驱动（`driver.gd`）自动开一局站桩打一波，检查：Mod 加载、开波挂上、有伤害记录、热键、鼠标点击和拖动
-  （用 `Input.parse_input_event` 走引擎真实的输入流程）、暂停菜单上方也点得到主面板（多人时同样）、
-  暂停时钟不走、手动重置、收波、浮窗在暂停和收波后让开、
-  **日志按当前版本重新解析后与实时统计逐段逐来源一致**、CSV 导出、主面板后台导入、队友快照往返，
-  并给每个窗口截图
+  （用 `Input.parse_input_event` 走引擎真实的输入流程）、暂停菜单上方也点得到战斗记录（多人时同样）、
+  暂停时钟不走、手动重置、浮窗背景随鼠标淡入淡出、悬停提示、设置窗口（开关、拖滑杆改配置、录热键）、
+  没选中时拆分看全部、逐条事件（实时那段、从日志读结束的段、按选中的行筛选，条数和命中次数一致）、曲线悬停读数、
+  收波、浮窗在暂停和收波后让开、**日志按当前版本重新解析后与实时统计逐段逐来源一致**、CSV 导出、战斗记录后台导入、
+  队友快照往返，并给每个窗口截图。每次开跑前删掉测试用户目录里 Mod 的配置，测的是默认值
 
 ```bash
-python tools/testpack/run_test.py                                   # 默认：第 3 波、20 秒、一套覆盖燃烧 / 爆炸 / 建筑 / 反击的配装
+python tools/testpack/run_test.py                                   # 默认：第 3 波、40 秒、一套覆盖燃烧 / 爆炸 / 建筑 / 反击的配装
 python tools/testpack/run_test.py --wave 9 --seconds 30 --loadout "weapon_plank_2,weapon_torch_2,item_riposte"
 python tools/testpack/run_test.py --players 2                       # 本地合作
 python tools/testpack/run_test.py --with "<Steam 库>/steamapps/workshop/content/1942280/3741034628/six666-BrotatoOnline.zip"
 python tools/testpack/run_test.py --wave 18 --enemy-mult 3 --loadout "weapon_minigun_4,weapon_minigun_4,weapon_gatling_laser_4"   # 压力测试
-python tools/testpack/run_test.py --lang en --preview preview-en    # 顺便生成预览图
 python tools/testpack/summary.py                                    # 再看一遍上次的结果
 ```
 
+预览图（README 和创意工坊用）也由测试顺便生成，用一套打得热闹的配装：
+
+```bash
+python tools/testpack/run_test.py --lang zh --wave 9 --seconds 45 --preview preview-zh --loadout "weapon_plank_2,weapon_plank_2,weapon_torch_2,weapon_knife_1,weapon_flamethrower_2,weapon_shredder_1,item_riposte,item_turret_flame,item_scared_sausage,item_landmines"
+python tools/testpack/run_test.py --lang en --wave 9 --seconds 45 --preview preview-en --preview-sub "Damage meter · Co-op ready" --loadout "（同上）"
+```
+
+生成在结果目录里，复制到 `docs/images/`；`docs/workshop/preview.png` 用中文那张。
+
 结果在 `%APPDATA%\BrotatoBCTTest\bct_test\`（`results.json` 和截图），游戏日志在 `%APPDATA%\BrotatoBCTTest\logs\`。
-测试会弹出一个游戏窗口，跑完自己关，一次半分钟左右。
+测试会弹出一个游戏窗口，跑完自己关，一次一分钟左右。
 
 结果里的 `perf` 是开销：伤害回调每次约 40 µs（压力测试每秒 125 次时合计每秒 5 ms），
-浮窗每次重绘约 0.5 ms（每秒 10 次），主面板约 1 ms（每秒 4 次）。
+浮窗每次重绘约 0.6 ms（每秒 5 次），战斗记录约 1.4 ms（实时时每秒 2 次，操作时当帧重画），设置窗口约 1.9 ms（只在操作时画）。
 
 ---
 
@@ -238,7 +266,7 @@ python tools/testpack/summary.py                                    # 再看一�
    简体中文等其他语言的标题、各语言的说明都不动。所以文件名固定为页面上的英文标题、不带版本号；
    在页面上改了英文标题，要同步改 `tools/package.py` 的 `WORKSHOP_TITLE`，否则下次上传又被改回去
 2. 打开上传工具，日志第一行应当是 `Steam initialization OK!`
-3. 选 zip；第一次上传选预览图 `docs/workshop/preview.png`；标签选 **GUI** 和 **Utilities**
+3. 选 zip；第一次上传、或者预览图换过时选预览图 `docs/workshop/preview.png`（不选就不动页面上的图）；标签选 **GUI** 和 **Utilities**
 4. Workshop ID 填本 Mod 的条目 [`3809733696`](https://steamcommunity.com/sharedfiles/filedetails/?id=3809733696)，
    点 Upload，日志出现 `Uploading workshop item with ID …`、`Item successfully uploaded.` 就是传好了。
    留空会另建一个新条目（日志先出现 `Workshop item created successfully…`，新 ID 自动填进输入框）

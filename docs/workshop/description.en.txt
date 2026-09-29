@@ -1,15 +1,16 @@
 [h1]Brotato Combat Tracker — DPS Meter[/h1]
 
-A horizontal overlay that breaks down [b]damage dealt, damage taken and healing[/b] per [b]weapon and item[/b], segmented per wave; an ACT-style combat log window to review every wave; CSV export. The panel text follows the game's language (Chinese / English).
+A horizontal overlay that breaks down [b]damage dealt, damage taken and healing[/b] per [b]weapon and item[/b], segmented per wave; an ACT-style combat log window to review every wave and list its individual events; CSV export. Everything can be set up in-game, and the UI text follows the game's language (Chinese / English).
 
 [b]Read-only statistics. It never modifies any game value.[/b]
 
 [h2]Features[/h2]
 [list]
 [*]Overlay: one card per weapon / item with DPS, total, share, crit rate and biggest hit; identical weapons of the same tier share a card, e.g. "SMG III ×2"
-[*]Click a card for a pie-chart breakdown: hit form (direct / burning / explosion), which enemies it hit, crit share
+[*]Click a card for a donut-chart breakdown: hit form (direct / burning / explosion), which enemies it hit, crit share
 [*]Three views: Damage / Taken (which enemies hit you, how often you dodged) / Healing (regeneration, life steal, items, consumables)
-[*]Combat log window (F8): every wave of the session with a table, per-second damage curves, breakdown table and pie chart
+[*]Combat log window (F8): every wave of the session with a table, per-second damage curves, breakdown table and donut chart; switch to the event list to see every single hit, damage taken and heal
+[*]Settings window (the gear on the overlay or the combat log): scale, slant, background opacity, what gets counted, hotkeys and player colours
 [*]Each session's combat events are saved to a log that can be imported and re-parsed with newer versions
 [*]Burning, explosions, turrets, landmines, Riposte and charmed enemies are credited to the right weapon or item, following the game's own bookkeeping
 [/list]
@@ -28,7 +29,7 @@ A horizontal overlay that breaks down [b]damage dealt, damage taken and healing[
 [*][b]F11[/b] Export the current encounter as CSV
 [/list]
 
-The overlay only shows while a wave is running and steps aside for the pause menu, level-up choices and the shop. Settings live in %APPDATA%\Brotato\CombatTracker\config.cfg (created after the first launch).
+The overlay normally shows just its text and cards; its background and buttons appear when the cursor is on it. It only shows while a wave is running and steps aside for the pause menu, level-up choices and the shop. Settings are saved to %APPDATA%\Brotato\CombatTracker\config.cfg.
 
 [h2]Source and feedback[/h2]
 Open source (MIT): [url=https://github.com/DPS-Love/brotato-combat-tracker]github.com/DPS-Love/brotato-combat-tracker[/url]

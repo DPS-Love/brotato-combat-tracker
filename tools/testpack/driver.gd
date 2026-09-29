@@ -9,7 +9,7 @@ extends Node
 # 结果写在测试用户目录的 bct_test/ 下：results.json 和若干 png。
 # 环境变量：
 #   BCT_TEST_WAVE        开局波次（默认 3）
-#   BCT_TEST_SECONDS     波次时长（默认 20）
+#   BCT_TEST_SECONDS     波次时长（默认 40：界面检查要在波次里做完）
 #   BCT_TEST_LANG        界面语言（zh / en，由测试平台层读取）
 #   BCT_TEST_LOADOUT     逗号分隔的 my_id（武器与物品），默认一套覆盖燃烧 / 爆炸 / 建筑 / 反击的配装
 #   BCT_TEST_ENEMY_MULT  敌人数量倍率（压力测试用，默认 1）
@@ -27,7 +27,7 @@ func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
 	DebugService.disable_saving = true
 	DebugService.no_fullscreen_on_launch = true
-	DebugService.custom_wave_duration = int(_env("BCT_TEST_SECONDS", "20"))
+	DebugService.custom_wave_duration = int(_env("BCT_TEST_SECONDS", "40"))
 	DebugService.nb_enemies_mult = float(_env("BCT_TEST_ENEMY_MULT", "1"))
 	var d = Directory.new()
 	d.make_dir_recursive(OUT)
@@ -95,23 +95,33 @@ func _run() -> void:
 		yield(_shot("2-detail"), "completed")
 		tracker.ui.detail.close()
 
-	tracker.ui.main_panel.toggle()
+	var panel = tracker.ui.main_panel
+	panel.toggle()
 	yield(get_tree().create_timer(0.6), "timeout")
 	yield(_shot("3-main-damage"), "completed")
-	tracker.ui.main_panel._view = 1
-	tracker.ui.main_panel.mark_dirty()
+	# 没选中任何行时拆分看全队
+	_check("breakdown_everyone", not panel._has_source and panel._brk_rows.size() > 0, panel._brk_rows.size())
+	panel._view = 1
+	panel.mark_dirty()
 	yield(get_tree().create_timer(0.4), "timeout")
 	yield(_shot("4-main-taken"), "completed")
-	tracker.ui.main_panel._view = 2
-	tracker.ui.main_panel._group = 1
-	tracker.ui.main_panel.mark_dirty()
+	panel._view = 2
+	panel.mark_dirty()
 	yield(get_tree().create_timer(0.4), "timeout")
 	yield(_shot("5-main-healing"), "completed")
-	tracker.ui.main_panel._view = 0
-	tracker.ui.main_panel._group = 0
-	tracker.ui.main_panel.toggle()
+	# 逐条事件：实时那段从内存里拿
+	panel._view = 0
+	panel._events_mode = true
+	panel.mark_dirty()
+	yield(get_tree().create_timer(0.6), "timeout")
+	_check("events_live", panel._ev_shown.size() > 0, panel._ev_shown.size())
+	yield(_shot("5b-main-events-live"), "completed")
+	panel._events_mode = false
+	panel._group = 0
+	panel.toggle()
 
 	yield(_verify_input(), "completed")
+	yield(_verify_windows(), "completed")
 
 	# 等收波
 	var waited = 0.0
@@ -129,6 +139,7 @@ func _run() -> void:
 
 	_verify_log_roundtrip()
 	_verify_csv()
+	yield(_verify_event_page(), "completed")
 	yield(_verify_ui_import(), "completed")
 	yield(_simulate_teammate(), "completed")
 	_finish()
@@ -165,17 +176,25 @@ func _verify_input():
 		seen.append(overlay.view)
 	_check("click_view_button", seen == [1, 2, 0], seen)
 
-	# 点第一张卡片打开明细，再点一次关掉
-	var card_rect = _hit_rect(overlay, "card")
+	# 点第一张卡片打开明细，再点一次关掉。卡片按伤害排序、随时可能换位置，每次点之前按键重新找
+	var card_key = null
+	for h in overlay._hits:
+		if h[1] == "card":
+			card_key = h[2]
+			break
 	var card_ok = false
+	var card_rect = _hit_rect_arg(overlay, "card", card_key) if card_key != null else null
 	if card_rect != null:
 		_click(overlay, card_rect)
 		yield(get_tree().create_timer(0.25), "timeout")
-		card_ok = detail.visible
-		_click(overlay, card_rect)
+		card_ok = detail.visible and typeof(detail._key) == typeof(card_key) and detail._key == card_key
+		yield(_shot("2b-detail-clicked"), "completed")
+		card_rect = _hit_rect_arg(overlay, "card", card_key)
+		if card_rect != null:
+			_click(overlay, card_rect)
 		yield(get_tree().create_timer(0.25), "timeout")
 		card_ok = card_ok and not detail.visible
-	_check("click_card_detail", card_ok)
+	_check("click_card_detail", card_ok, str(card_key))
 
 	# 拖动浮窗：按住标题栏挪 (80, 60)，位置写回配置；再拖回去
 	var start = overlay.rect_position
@@ -226,6 +245,163 @@ func _verify_input():
 	var after = tracker.session.encounters.size()
 	var cur = tracker.session.current
 	_check("hotkey_reset", after == before + 1 and cur != null and cur.part == 2, [before, after])
+
+
+# 设置窗口、滑杆、热键录制、悬停提示、浮窗背景淡入淡出。都走 Godot 真实的输入分发
+func _verify_windows():
+	var overlay = tracker.ui.overlay
+	var settings = tracker.ui.settings
+
+	# 光标移到浮窗上：背景和按钮淡入；移开后淡出
+	_move(overlay.get_global_transform().xform(overlay.rect_size * 0.5))
+	yield(get_tree().create_timer(0.4), "timeout")
+	var faded_in = overlay._fade
+	yield(_shot("12-overlay-hover"), "completed")
+	_move(Vector2(4, 4))
+	yield(get_tree().create_timer(0.4), "timeout")
+	_check("overlay_fade", faded_in > 0.99 and overlay._fade < 0.01, [faded_in, overlay._fade])
+
+	# 悬停提示：停在战斗记录标题栏的齿轮上（浮窗的按钮随卡片数左右移，拿来测会时准时不准）
+	var panel = tracker.ui.main_panel
+	panel.toggle()
+	yield(get_tree().create_timer(0.4), "timeout")
+	var tip_ok = false
+	var gear_rect = _hit_rect(panel, "settings")
+	if gear_rect != null:
+		_move(panel.get_global_transform().xform(gear_rect.position + gear_rect.size * 0.5))
+		yield(get_tree().create_timer(0.8), "timeout")
+		tip_ok = tracker.ui.tooltip.visible and tracker.ui.tooltip._text != ""
+		yield(_shot("13-tooltip"), "completed")
+	_check("tooltip", tip_ok, [str(panel._hover_key), tracker.ui.tooltip._text])
+	_move(Vector2(4, 4))
+	panel.toggle()
+	yield(get_tree().create_timer(0.2), "timeout")
+
+	# 浮窗上的齿轮打开设置
+	var gear = _hit_rect(overlay, "settings")
+	if gear != null:
+		_click(overlay, gear)
+	yield(get_tree().create_timer(0.4), "timeout")
+	var opened = settings.visible
+	yield(_shot("14-settings-display"), "completed")
+
+	# 滑杆：把卡片斜切从 -30 拖到正中（0°），配置跟着变；再改回去
+	var skew_before = float(tracker.config.value("SkewDegrees"))
+	var skew_after = skew_before
+	var track = settings._sliders.get("SkewDegrees")
+	var hr = _hit_rect_arg(settings, "slider", "SkewDegrees")
+	if track != null and hr != null:
+		var y = hr.position.y + hr.size.y * 0.5
+		var from = Vector2(track[0] + track[1] * (skew_before - track[2]) / (track[3] - track[2]), y)
+		var to = Vector2(track[0] + track[1] * 0.5, y)
+		var xf = settings.get_global_transform()
+		_drag(xf.xform(from), xf.xform(to))
+		yield(get_tree().create_timer(0.3), "timeout")
+		skew_after = float(tracker.config.value("SkewDegrees"))
+	_check("settings_slider", abs(skew_after) < 0.6, [skew_before, skew_after])
+	tracker.config.put("SkewDegrees", skew_before)
+	tracker.config.save()
+	tracker.ui.mark_all_dirty()
+
+	# 热键页：点「显示 / 隐藏浮窗」的按钮录新热键，按 F7；F7 就能开关浮窗了。最后改回 F9
+	settings._page = 3
+	settings.mark_dirty()
+	yield(get_tree().create_timer(0.3), "timeout")
+	var key_rect = _hit_rect_arg(settings, "key", "ToggleOverlay")
+	if key_rect != null:
+		_click(settings, key_rect)
+	yield(get_tree().create_timer(0.2), "timeout")
+	var capturing = tracker.ui.capturing == "ToggleOverlay"
+	yield(_shot("15-settings-hotkeys"), "completed")
+	_key(KEY_F7)
+	yield(get_tree().create_timer(0.3), "timeout")
+	var rebound = str(tracker.config.value("ToggleOverlay")) == "F7"
+	var wanted = tracker.ui.overlay_wanted
+	_key(KEY_F7)
+	yield(get_tree().create_timer(0.2), "timeout")
+	var toggled = tracker.ui.overlay_wanted != wanted
+	_key(KEY_F7)
+	yield(get_tree().create_timer(0.2), "timeout")
+	tracker.config.put("ToggleOverlay", "F9")
+	tracker.config.save()
+	tracker.ui.reload_keys()
+	_check("hotkey_capture", capturing and rebound and toggled, [capturing, rebound, toggled])
+	settings._page = 0
+
+	# 标题栏的 × 关掉
+	var close_rect = _hit_rect(settings, "close")
+	if close_rect != null:
+		_click(settings, close_rect)
+	yield(get_tree().create_timer(0.3), "timeout")
+	_check("click_settings", opened and not settings.visible, [opened, settings.visible])
+
+
+# 逐条事件：已经结束的段从本局日志里读，条数和这一段的命中次数一致
+func _verify_event_page():
+	var panel = tracker.ui.main_panel
+	var s = tracker.session
+	var enc = s.encounters[0] if s.encounters.size() > 0 else null
+	if enc == null:
+		_check("events_page", false, "no encounter")
+		yield(get_tree(), "idle_frame")
+		return
+	if not panel.visible:
+		panel.toggle()
+	panel._sel = enc
+	panel._view = 0
+	panel._has_source = false
+	panel._events_mode = true
+	panel.mark_dirty()
+	var waited = 0.0
+	while waited < 10.0:
+		yield(get_tree().create_timer(0.3), "timeout")
+		waited += 0.3
+		if panel._ev_page != null and panel._ev_thread == null and panel._ev_shown.size() > 0:
+			break
+	var hits = 0
+	for st in enc.by_player[0].values():
+		hits += st.hits
+	_check("events_page", hits > 0 and panel._ev_shown.size() == hits, [panel._ev_shown.size(), hits, waited])
+	yield(get_tree().create_timer(0.3), "timeout")
+	yield(_shot("16-main-events-page"), "completed")
+	# 表格里选中一行：逐条事件只剩它的，条数等于它的命中次数
+	var Model = load(MOD + "/core/model.gd")
+	var rows = Model.sorted_rows(enc, 0, 0, false)
+	if rows.size() > 0:
+		panel._has_source = true
+		panel._source = rows[0].key
+		panel.mark_dirty()
+		yield(get_tree().create_timer(0.4), "timeout")
+		_check("events_filter", panel._ev_shown.size() == rows[0].hits, [panel._ev_shown.size(), rows[0].hits, rows[0].src])
+		yield(_shot("17-main-events-filtered"), "completed")
+		# 曲线上的悬停读数
+		panel._events_mode = false
+		panel.mark_dirty()
+		yield(get_tree().create_timer(0.4), "timeout")
+		var cr = panel._chart_rect
+		_move(panel.get_global_transform().xform(cr.position + cr.size * Vector2(0.6, 0.5)))
+		yield(get_tree().create_timer(0.3), "timeout")
+		_check("chart_hover", panel._chart_hover >= 0, panel._chart_hover)
+		yield(_shot("18-main-chart-hover"), "completed")
+		_move(Vector2(4, 4))
+		panel._has_source = false
+	panel._events_mode = false
+	panel._sel = null
+	panel.toggle()
+
+
+func _move(pos: Vector2) -> void:
+	var ev = InputEventMouseMotion.new()
+	ev.position = pos
+	ev.global_position = pos
+	Input.parse_input_event(ev)
+
+
+func _hit_rect_arg(window, action: String, arg):
+	for h in window._hits:
+		if h[1] == action and typeof(h[2]) == typeof(arg) and h[2] == arg:
+			return h[0]
+	return null
 
 
 func _key(code: int) -> void:
@@ -280,7 +456,11 @@ func _verify_ui_import():
 	var panel = tracker.ui.main_panel
 	if not panel.visible:
 		panel.toggle()
+	panel._picker_open = true
 	panel._refresh_files()
+	panel.mark_dirty()
+	yield(get_tree().create_timer(0.4), "timeout")
+	yield(_shot("10a-main-picker"), "completed")
 	var idx = -1
 	for i in range(panel._files.size()):
 		if panel._files[i].path == tracker.writer.path:
@@ -352,14 +532,28 @@ func _make_preview(name: String):
 	var overlay = tracker.ui.overlay
 	var panel = tracker.ui.main_panel
 	var old_cards = tracker.config.value("MaxCards")
+	var old_scale = float(tracker.config.value("UiScale"))
 	var old_overlay_pos = overlay.rect_position
 	var old_panel_pos = panel.rect_position
+	# 正方形里要放下浮窗和整个战斗记录窗口：界面缩小一点；浮窗亮出背景和按钮，表格里选中第一名
 	tracker.config.put("MaxCards", 5)
-	overlay.rect_position = Vector2(464, 176)
+	tracker.ui.set_ui_scale(0.9)
+	overlay.force_frame = true
 	overlay.mark_dirty()
 	if not panel.visible:
 		panel.toggle()
-	panel.rect_position = Vector2(440, 360)
+	var Model = load(MOD + "/core/model.gd")
+	var top_rows = Model.sorted_rows(tracker.session.current, 0, 0, false)
+	if top_rows.size() > 0:
+		panel._has_source = true
+		panel._source = top_rows[0].key
+	yield(get_tree().create_timer(0.3), "timeout")
+	var ow = overlay.rect_size.x * overlay.rect_scale.x
+	var oh = overlay.rect_size.y * overlay.rect_scale.y
+	var pw = panel.rect_size.x * panel.rect_scale.x
+	overlay.rect_position = Vector2(round(960 - ow * 0.5), 176)
+	panel.rect_position = Vector2(round(960 - pw * 0.5), round(176 + oh + 22))
+	overlay.mark_dirty()
 	panel.mark_dirty()
 
 	var hud = get_tree().current_scene.get_node_or_null("UI/HUD")
@@ -405,8 +599,11 @@ func _make_preview(name: String):
 	if hud != null:
 		hud.visible = true
 	tracker.config.put("MaxCards", old_cards)
+	tracker.ui.set_ui_scale(old_scale)
+	overlay.force_frame = false
 	overlay.rect_position = old_overlay_pos
 	panel.rect_position = old_panel_pos
+	panel._has_source = false
 	panel.toggle()
 
 
@@ -488,7 +685,7 @@ func _perf() -> void:
 		"hook_usec_avg": float(tracker.cost_usec) / max(calls, 1),
 		"hook_ms_per_s": tracker.cost_usec / 1000.0 / max(dur, 0.01),
 	}
-	for w in [tracker.ui.overlay, tracker.ui.detail, tracker.ui.main_panel]:
+	for w in [tracker.ui.overlay, tracker.ui.detail, tracker.ui.main_panel, tracker.ui.settings]:
 		perf[w.name + "_draw_usec_avg"] = float(w.draw_usec) / max(w.draw_calls, 1)
 		perf[w.name + "_draws"] = w.draw_calls
 	perf["fps_now"] = Engine.get_frames_per_second()

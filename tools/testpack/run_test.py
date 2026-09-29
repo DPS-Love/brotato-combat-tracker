@@ -8,7 +8,7 @@
 玩家的存档、设置、Steam 云和成就都不会被碰到。
 
 用法：
-  python tools/testpack/run_test.py [--game DIR] [--lang zh|en] [--with MOD.zip ...] [--wave 3] [--seconds 20]
+  python tools/testpack/run_test.py [--game DIR] [--lang zh|en] [--with MOD.zip ...] [--wave 3] [--seconds 40]
 """
 import argparse
 import glob
@@ -35,7 +35,7 @@ def main():
     ap.add_argument("--lang", default="zh")
     ap.add_argument("--with", dest="extra", action="append", default=[], help="同时加载的其它 Mod zip（比如 BrotatoOnline）")
     ap.add_argument("--wave", default="3")
-    ap.add_argument("--seconds", default="20")
+    ap.add_argument("--seconds", default="40")
     ap.add_argument("--loadout", default="")
     ap.add_argument("--enemy-mult", default="1")
     ap.add_argument("--players", default="1")
@@ -63,8 +63,11 @@ def main():
     if not os.path.exists(pack) or os.path.getmtime(pack) < newest(sources):
         subprocess.run([sys.executable, os.path.join(HERE, "build_testpack.py"), "--game", args.game], check=True)
 
-    # 3. 启动
+    # 3. 启动：结果目录清空；Mod 的配置删掉重新生成，测的是默认值（战斗日志留着，导入要用）
     shutil.rmtree(os.path.join(USER_DIR, "bct_test"), ignore_errors=True)
+    config = os.path.join(USER_DIR, "CombatTracker", "config.cfg")
+    if os.path.exists(config):
+        os.remove(config)
     env = dict(os.environ)
     env["BCT_TEST_LANG"] = args.lang
     env["BCT_TEST_WAVE"] = args.wave

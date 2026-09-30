@@ -83,6 +83,8 @@ def main():
                 data = f.read()
             info = zipfile.ZipInfo(rel, FIXED_TIME)
             info.compress_type = zipfile.ZIP_STORED
+            # zipfile 按打包的系统填「来源系统」（Windows 0、其他 3），固定下来各平台才逐字节相同
+            info.create_system = 3
             info.external_attr = 0o644 << 16
             z.writestr(info, data)
     with open(out, "rb") as f:

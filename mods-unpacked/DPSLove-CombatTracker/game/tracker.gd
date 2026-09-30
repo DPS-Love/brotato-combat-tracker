@@ -11,7 +11,7 @@ extends Node
 # 只读：只连信号、读字段，不改任何游戏数值。游戏的类型一律按字段和方法「鸭子类型」识别，
 # 不写死 class_name——某个类以后改名，这里只是认不出，不会让整个 Mod 加载失败。
 
-const VERSION = "0.2.0"
+const VERSION = "0.3.0"
 const BUILT_FOR_GAME = "1.1.15.4"
 const LOG_NAME = "DPSLove-CombatTracker"
 const DATA_DIR = "user://CombatTracker"

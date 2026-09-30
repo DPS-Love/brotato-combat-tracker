@@ -283,7 +283,9 @@ python tools/testpack/run_test.py --lang en --players 2 --wave 9 --seconds 45 --
 3. `python tools/workshop_upload.py --check`：连上 Steam，核对条目作者是登录的账号，逐个语言对比条目上现在的标题和说明，
    不改任何东西
 4. `python tools/workshop_upload.py --upload`：上传。英文以外的语言各自提交一次标题和说明（和条目上一样的跳过），
-   最后一次提交文件、预览图、标签、英文的标题和说明，带上改动说明；最后打印 `传好了`
+   最后一次提交文件、预览图、标签、英文的标题和说明，带上改动说明；最后打印 `传好了`。
+   单独提交的语言不会在改动说明列表里留下空记录：上传 v0.3.0 时先提交了简体中文、紧接着提交文件和英文，
+   列表的英文和简体中文视图里都只多了带说明的那一条
 
 `--note 文件` 换一份改动说明，`--no-preview` 不换预览图，`--visibility public|friends|private|unlisted` 顺便改可见性，
 `--game 目录` 指定游戏目录（默认从 Steam 的各个库里找，也可以设环境变量 `BROTATO_GAME_DIR`）。

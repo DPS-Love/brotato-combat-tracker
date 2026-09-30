@@ -67,7 +67,7 @@ func _rows(page: int) -> Array:
 				["slider", "UiScale", Strings.set_ui_scale(), Strings.set_ui_scale_desc(), false, 0.5, 2.5, 0.05],
 				["slider", "SkewDegrees", Strings.set_skew(), Strings.set_skew_desc(), false, -45.0, 45.0, 1.0],
 				["slider", "BackgroundOpacity", Strings.set_bg(), Strings.set_bg_desc(), false, 0.0, 100.0, 5.0],
-				["slider", "MaxCards", Strings.set_max_cards(), Strings.set_max_cards_desc(), false, 1.0, 12.0, 1.0],
+				["slider", "MaxRows", Strings.set_max_rows(), Strings.set_max_rows_desc(), false, 1.0, 12.0, 1.0],
 				["toggle", "ShowIcons", Strings.set_icons(), Strings.set_icons_desc(), false],
 				["toggle", "ShowInShop", Strings.set_shop(), Strings.set_shop_desc(), false],
 			]

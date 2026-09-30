@@ -67,10 +67,6 @@ static func tip_view() -> String:
 	return pick("切换：输出 / 承伤 / 治疗", "Switch: damage / taken / healing")
 
 
-static func tip_group() -> String:
-	return pick("切换：按来源 / 按玩家", "Switch: by source / by player")
-
-
 static func tip_reset(key: String) -> String:
 	return pick("重置当前统计", "Reset the current encounter") + _key_tag(key)
 
@@ -101,10 +97,6 @@ static func dodge_rate(rate: float) -> String:
 
 static func max_hit(v: String) -> String:
 	return pick("最大 " + v, "Max " + v)
-
-
-static func more_cards(n: int) -> String:
-	return "+%d" % n
 
 
 # ================================================================ 分段标题
@@ -207,6 +199,27 @@ static func player_tag(p: int) -> String:
 
 # 环形图上并起来的那一段（一屏之外的、占比太小的项）
 static func other() -> String:
+	return pick("其他", "Other")
+
+
+# 浮窗树形里来源的分类
+static func cat_weapons() -> String:
+	return pick("武器", "Weapons")
+
+
+static func cat_items() -> String:
+	return pick("物品", "Items")
+
+
+static func cat_enemies() -> String:
+	return pick("敌人", "Enemies")
+
+
+static func cat_stats() -> String:
+	return pick("属性回复", "Stats")
+
+
+static func cat_other() -> String:
 	return pick("其他", "Other")
 
 
@@ -524,11 +537,11 @@ static func set_ui_scale_desc() -> String:
 
 
 static func set_skew() -> String:
-	return pick("卡片斜切", "Card slant")
+	return pick("色条斜切", "Bar slant")
 
 
 static func set_skew_desc() -> String:
-	return pick("浮窗色块的斜切角度，0 为直角", "Slant of the overlay's colour blocks; 0 is square")
+	return pick("浮窗色条的斜切角度，0 为直角", "Slant of the overlay's bars; 0 is square")
 
 
 static func set_bg() -> String:
@@ -540,12 +553,13 @@ static func set_bg_desc() -> String:
 		"Background opacity of the overlay, breakdown and combat log windows. The overlay shows its background and buttons only while the cursor is on it")
 
 
-static func set_max_cards() -> String:
-	return pick("浮窗卡片数", "Overlay cards")
+static func set_max_rows() -> String:
+	return pick("每组最多几项", "Items per group")
 
 
-static func set_max_cards_desc() -> String:
-	return pick("浮窗最多显示几张卡片，其余计入标题栏的「+n」", "Most cards on the overlay; the rest are counted as +n in its title")
+static func set_max_rows_desc() -> String:
+	return pick("浮窗里每一组（武器 / 物品 / 其他…）最多列几项，其余并成「另有 n 项」",
+		"Most items listed under each group on the overlay (weapons / items / other…); the rest become \"n more\"")
 
 
 static func set_icons() -> String:

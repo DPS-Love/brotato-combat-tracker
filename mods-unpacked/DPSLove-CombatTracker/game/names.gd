@@ -236,13 +236,83 @@ func row_label(enc, view: int, group: int, s) -> String:
 		return "?"
 	if group == 1:
 		return player_label(s.player, enc)
+	var label = source_row_label(enc, view, s)
+	if enc != null and enc.players().size() > 1:
+		label = Strings.player_tag(s.player) + " " + label
+	return label
+
+
+# 来源一行的名字，不带玩家前缀（浮窗的树里已经在玩家下面了）
+func source_row_label(enc, view: int, s) -> String:
+	if s == null:
+		return "?"
 	var label = source_label(view, s.src)
 	var n = int(enc.weapon_counts.get(s.key, 0)) if enc != null else 0
 	if n > 1:
 		label += " ×%d" % n
-	if enc != null and enc.players().size() > 1:
-		label = Strings.player_tag(s.player) + " " + label
 	return label
+
+
+# 浮窗树形的第二级：来源属于哪一类。
+#   输出：武器 w / 物品 i / 其他 o（燃烧、爆炸这类归不到具体来源的，被魅惑的敌人）
+#   承伤：敌人 e / 精英 l / Boss b / 其他 o
+#   治疗：属性回复 s（生命再生、生命窃取）/ 物品 i / 消耗品 c（吃水果和它的持续恢复）/ 其他 o
+static func category_of(view: int, src: String) -> String:
+	var colon = src.find(":")
+	var kind = src.substr(0, colon) if colon >= 0 else src
+	match view:
+		0:
+			if kind == "w" or kind == "i":
+				return kind
+		1:
+			if kind == "e" or kind == "l" or kind == "b":
+				return kind
+		_:
+			if src == "h:regen" or src == "h:lifesteal":
+				return "s"
+			if kind == "i":
+				return "i"
+			if src == "h:consumable" or src == "h:hot":
+				return "c"
+	return "o"
+
+
+func category_label(cat: String) -> String:
+	match cat:
+		"w":
+			return Strings.cat_weapons()
+		"i":
+			return Strings.cat_items()
+		"e":
+			return Strings.cat_enemies()
+		"l":
+			return _tr_or("ELITE", Strings.pick("精英", "Elite"))
+		"b":
+			return _tr_or("BOSS", "Boss")
+		"s":
+			return Strings.cat_stats()
+		"c":
+			return Strings.consumables()
+	return Strings.cat_other()
+
+
+static func category_color(cat: String) -> Color:
+	match cat:
+		"w":
+			return Color("4fa3e3")
+		"i":
+			return Color("e87d3e")
+		"e":
+			return Color("9aa3ad")
+		"l":
+			return Color("e87d3e")
+		"b":
+			return Color("c0392b")
+		"s":
+			return Color("6cc24a")
+		"c":
+			return Color("f2c94c")
+	return Color("7a8089")
 
 
 func row_color(view: int, group: int, s) -> Color:

@@ -50,6 +50,10 @@ static func _strokes(name: String) -> Array:
 			return [[[3.5, 10.5], [8, 6], [12.5, 10.5]]]
 		"chevron_down":
 			return [[[3.5, 5.5], [8, 10], [12.5, 5.5]]]
+		"chevron_right":
+			return [[[5.5, 3.5], [10, 8], [5.5, 12.5]]]
+		"chevron_left":
+			return [[[10.5, 3.5], [6, 8], [10.5, 12.5]]]
 		"refresh":
 			# ⟳：从 1 点钟顺时针绕到 11 点钟，箭头朝着缺口
 			var arc = _arc(8, 8.3, 5.4, 300.0, 590.0)

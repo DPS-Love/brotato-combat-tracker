@@ -176,25 +176,49 @@ func _verify_input():
 		seen.append(overlay.view)
 	_check("click_view_button", seen == [1, 2, 0], seen)
 
-	# 点第一张卡片打开明细，再点一次关掉。卡片按伤害排序、随时可能换位置，每次点之前按键重新找
-	var card_key = null
+	# 点第一个来源那一行打开拆分，再点一次关掉。行按伤害排序、随时可能换位置：
+	# 这几项点击期间停掉浮窗的定时刷新（点了之后照样重排），每次点之前按键重新找
+	overlay.refresh_interval = 0.0
+	var src_key = null
 	for h in overlay._hits:
-		if h[1] == "card":
-			card_key = h[2]
+		if h[1] == "source":
+			src_key = h[2]
 			break
-	var card_ok = false
-	var card_rect = _hit_rect_arg(overlay, "card", card_key) if card_key != null else null
-	if card_rect != null:
-		_click(overlay, card_rect)
+	var src_ok = false
+	var src_rect = _hit_rect_arg(overlay, "source", src_key) if src_key != null else null
+	if src_rect != null:
+		_click(overlay, src_rect)
 		yield(get_tree().create_timer(0.25), "timeout")
-		card_ok = detail.visible and typeof(detail._key) == typeof(card_key) and detail._key == card_key
+		src_ok = detail.visible and typeof(detail._key) == typeof(src_key) and detail._key == src_key
 		yield(_shot("2b-detail-clicked"), "completed")
-		card_rect = _hit_rect_arg(overlay, "card", card_key)
-		if card_rect != null:
-			_click(overlay, card_rect)
+		src_rect = _hit_rect_arg(overlay, "source", src_key)
+		if src_rect != null:
+			_click(overlay, src_rect)
 		yield(get_tree().create_timer(0.25), "timeout")
-		card_ok = card_ok and not detail.visible
-	_check("click_card_detail", card_ok, str(card_key))
+		src_ok = src_ok and not detail.visible
+	_check("click_source_detail", src_ok, str(src_key))
+
+	# 点分类（多人时是玩家）那一行折叠，下面的来源行跟着收起；再点一次展开
+	var node_key = null
+	for h in overlay._hits:
+		if h[1] == "toggle":
+			node_key = h[2]
+			break
+	var rows_before = overlay._rows.size()
+	var rows_folded = rows_before
+	var node_rect = _hit_rect_arg(overlay, "toggle", node_key) if node_key != null else null
+	if node_rect != null:
+		_click(overlay, node_rect)
+		yield(get_tree().create_timer(0.3), "timeout")
+		rows_folded = overlay._rows.size()
+		yield(_shot("2c-overlay-folded"), "completed")
+		node_rect = _hit_rect_arg(overlay, "toggle", node_key)
+		if node_rect != null:
+			_click(overlay, node_rect)
+		yield(get_tree().create_timer(0.3), "timeout")
+	_check("tree_toggle", node_key != null and rows_folded < rows_before and not overlay._collapsed.has(node_key),
+		[str(node_key), rows_before, rows_folded, overlay._rows.size()])
+	overlay.refresh_interval = 0.2
 
 	# 拖动浮窗：按住标题栏挪 (80, 60)，位置写回配置；再拖回去
 	var start = overlay.rect_position
@@ -253,13 +277,17 @@ func _verify_windows():
 	var settings = tracker.ui.settings
 
 	# 光标移到浮窗上：背景和按钮淡入；移开后淡出
-	_move(overlay.get_global_transform().xform(overlay.rect_size * 0.5))
-	yield(get_tree().create_timer(0.4), "timeout")
+	# 双人高强度战斗时偶尔有一次光标移动没送到窗口（原因没查清，点击和拖动不受影响），没淡入就再移一次
+	var tries = 0
+	while tries < 3 and overlay._fade < 0.99:
+		tries += 1
+		_move(overlay.get_global_transform().xform(overlay.rect_size * 0.5) + Vector2(tries, 0))
+		yield(get_tree().create_timer(0.4), "timeout")
 	var faded_in = overlay._fade
 	yield(_shot("12-overlay-hover"), "completed")
 	_move(Vector2(4, 4))
 	yield(get_tree().create_timer(0.4), "timeout")
-	_check("overlay_fade", faded_in > 0.99 and overlay._fade < 0.01, [faded_in, overlay._fade])
+	_check("overlay_fade", faded_in > 0.99 and overlay._fade < 0.01, [faded_in, overlay._fade, tries])
 
 	# 悬停提示：停在战斗记录标题栏的齿轮上（浮窗的按钮随卡片数左右移，拿来测会时准时不准）
 	var panel = tracker.ui.main_panel
@@ -268,9 +296,12 @@ func _verify_windows():
 	var tip_ok = false
 	var gear_rect = _hit_rect(panel, "settings")
 	if gear_rect != null:
-		_move(panel.get_global_transform().xform(gear_rect.position + gear_rect.size * 0.5))
-		yield(get_tree().create_timer(0.8), "timeout")
-		tip_ok = tracker.ui.tooltip.visible and tracker.ui.tooltip._text != ""
+		var tip_tries = 0
+		while tip_tries < 3 and not tip_ok:
+			tip_tries += 1
+			_move(panel.get_global_transform().xform(gear_rect.position + gear_rect.size * 0.5) + Vector2(tip_tries, 0))
+			yield(get_tree().create_timer(0.8), "timeout")
+			tip_ok = tracker.ui.tooltip.visible and tracker.ui.tooltip._text != ""
 		yield(_shot("13-tooltip"), "completed")
 	_check("tooltip", tip_ok, [str(panel._hover_key), tracker.ui.tooltip._text])
 	_move(Vector2(4, 4))
@@ -531,12 +562,11 @@ func _start_run() -> void:
 func _make_preview(name: String):
 	var overlay = tracker.ui.overlay
 	var panel = tracker.ui.main_panel
-	var old_cards = tracker.config.value("MaxCards")
 	var old_scale = float(tracker.config.value("UiScale"))
 	var old_overlay_pos = overlay.rect_position
 	var old_panel_pos = panel.rect_position
-	# 正方形里要放下浮窗和整个战斗记录窗口：界面缩小一点；浮窗亮出背景和按钮，表格里选中第一名
-	tracker.config.put("MaxCards", 5)
+	# 正方形里要放下浮窗和整个战斗记录窗口：界面缩小一点，战斗记录靠右，浮窗压在它左边的分段列表上；
+	# 浮窗亮出背景和按钮，表格里选中第一名
 	tracker.ui.set_ui_scale(0.9)
 	overlay.force_frame = true
 	overlay.mark_dirty()
@@ -548,11 +578,11 @@ func _make_preview(name: String):
 		panel._has_source = true
 		panel._source = top_rows[0].key
 	yield(get_tree().create_timer(0.3), "timeout")
-	var ow = overlay.rect_size.x * overlay.rect_scale.x
 	var oh = overlay.rect_size.y * overlay.rect_scale.y
 	var pw = panel.rect_size.x * panel.rect_scale.x
-	overlay.rect_position = Vector2(round(960 - ow * 0.5), 176)
-	panel.rect_position = Vector2(round(960 - pw * 0.5), round(176 + oh + 22))
+	panel.rect_position = Vector2(round(1500 - pw - 14), 190)
+	overlay.rect_position = Vector2(430, round(min(1080 - oh - 24, 330)))
+	overlay._raise()
 	overlay.mark_dirty()
 	panel.mark_dirty()
 
@@ -598,7 +628,6 @@ func _make_preview(name: String):
 	layer.queue_free()
 	if hud != null:
 		hud.visible = true
-	tracker.config.put("MaxCards", old_cards)
 	tracker.ui.set_ui_scale(old_scale)
 	overlay.force_frame = false
 	overlay.rect_position = old_overlay_pos
@@ -717,14 +746,21 @@ func _simulate_teammate():
 	var ok = a != null and b != null and abs(a.eff - b.eff) < 0.01 and a.hits == b.hits
 	_check("teammate_snapshot", ok, [a.eff if a != null else null, b.eff if b != null else null])
 	results["snapshot_bytes"] = to_json(snap).length()
-	tracker.ui.overlay.group = 1
-	tracker.ui.overlay.mark_dirty()
+	# 多人时浮窗按玩家分组：每名玩家一个顶层节点
+	var overlay = tracker.ui.overlay
+	overlay.mark_dirty()
 	yield(get_tree().create_timer(0.4), "timeout")
-	yield(_shot("7-overlay-coop-players"), "completed")
-	tracker.ui.overlay.group = 0
-	tracker.ui.overlay.mark_dirty()
+	var player_rows = 0
+	for r in overlay._rows:
+		if r.kind == "player":
+			player_rows += 1
+	_check("overlay_tree_players", player_rows == enc.players().size(), [player_rows, enc.players().size()])
+	yield(_shot("7-overlay-coop-tree"), "completed")
+	overlay.view = 2
+	overlay.mark_dirty()
 	yield(get_tree().create_timer(0.4), "timeout")
-	yield(_shot("8-overlay-coop-sources"), "completed")
+	yield(_shot("8-overlay-coop-healing"), "completed")
+	overlay.view = 0
 	tracker.ui.main_panel.toggle()
 	tracker.ui.main_panel._group = 1
 	tracker.ui.main_panel.mark_dirty()

@@ -44,9 +44,10 @@ def main():
     ap.add_argument("--timeout", type=int, default=180)
     args = ap.parse_args()
 
-    # 1. 打包
+    # 1. 打包（输出到管道时 Python 默认用系统代码页，简体中文系统是 GBK，让它改用 UTF-8）
     out = subprocess.run([sys.executable, os.path.join(REPO, "tools", "package.py"), "--out", BUILD],
-                         capture_output=True, text=True, encoding="utf-8")
+                         capture_output=True, text=True, encoding="utf-8",
+                         env=dict(os.environ, PYTHONIOENCODING="utf-8"))
     if out.returncode != 0:
         sys.exit(out.stderr or out.stdout)
     zip_path = out.stdout.splitlines()[0].strip()

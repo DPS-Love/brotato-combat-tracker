@@ -141,14 +141,20 @@ Mod Loader 重载全部子类。唯一的扩展是 `player.gd`（治疗归因，
 
 ### 界面
 
-配色、版式、交互照搬 TBH Combat Tracker v0.4 的界面：深色圆角窗口、图标按钮和悬停提示，浮窗平时只有描边的字和卡片，
+配色、版式、交互照搬 TBH Combat Tracker v0.4 的界面：深色圆角窗口、图标按钮和悬停提示，浮窗平时只有描边的字和色条，
 鼠标移上去才淡入背景和按钮；拆分表和环形图互相高亮，环上一屏之外的小项并成「其他」。
+
+浮窗和 TBH 不同：TBH 是横向并排的卡片（一个英雄一张），这里是竖向的多级列表（`ui/overlay.gd`）——
+Brotato 一名玩家就有好几件武器和物品，多人时按玩家分组才看得清。多人是玩家 → 分类 → 来源，单人省掉玩家这一级；
+分类见 `names.category_of`（输出：武器 / 物品 / 其他；承伤：敌人 / 精英 / Boss / 其他；治疗：属性回复 / 物品 / 消耗品 / 其他）。
+每一行一条斜切色条，整棵树用同一把尺子（多人时最大的那名玩家、单人时最大的那一类是满格）；
+折叠状态只在本次游戏里记着，按视图分开。
 
 - 四个窗口（浮窗、拆分、战斗记录、设置）都是整窗自绘的 `Control`（`ui/window_base.gd`），绘制时顺手登记点击区。
   版式常量直接用 TBH 的界面单位（和它的源码一一对应），窗口整体按 `skin.scale` 缩放：
   1.3 × `UiScale`，1.3 是 Brotato 的 1080p 画面相对 TBH（桌面分辨率、10–13 号字）的放大倍数。
   不用 `Button` 等内置控件：它们会抢键盘 / 手柄焦点，和游戏的焦点导航打架；焦点一律 `FOCUS_NONE`
-- 画法：圆角块、窗口底板和阴影用 `StyleBoxFlat`（引擎自带抗锯齿）；斜切色块、环形图、图标的线条在 GDScript 里拼成
+- 画法：圆角块、窗口底板和阴影用 `StyleBoxFlat`（引擎自带抗锯齿）；斜切色条、环形图、图标的线条在 GDScript 里拼成
   三角形网格（`ui/aa_mesh.gd`：每条边外侧铺一圈一像素宽的羽化带，和 TBH 的 MeshBuilder 同一做法）；曲线用引擎的抗锯齿折线。
   图标照着 Segoe Fluent Icons 的字形用线条画（`ui/icons.gd`），各平台一样，网格按大小和颜色缓存
 - 字：游戏自带的思源黑体（Noto Sans SC / TC / JP / KR，按游戏语言挑主字体）按缩放后的字号现建，
@@ -186,7 +192,7 @@ Mod Loader 重载全部子类。唯一的扩展是 `player.gd`（治疗归因，
   等测试驱动跑完自动退出，汇总结果、截图和日志里的脚本错误
 - 测试驱动（`driver.gd`）自动开一局站桩打一波，检查：Mod 加载、开波挂上、有伤害记录、热键、鼠标点击和拖动
   （用 `Input.parse_input_event` 走引擎真实的输入流程）、暂停菜单上方也点得到战斗记录（多人时同样）、
-  暂停时钟不走、手动重置、浮窗背景随鼠标淡入淡出、悬停提示、设置窗口（开关、拖滑杆改配置、录热键）、
+  暂停时钟不走、手动重置、浮窗树形的折叠 / 展开和多人时按玩家分组、浮窗背景随鼠标淡入淡出、悬停提示、设置窗口（开关、拖滑杆改配置、录热键）、
   没选中时拆分看全部、逐条事件（实时那段、从日志读结束的段、按选中的行筛选，条数和命中次数一致）、曲线悬停读数、
   收波、浮窗在暂停和收波后让开、**日志按当前版本重新解析后与实时统计逐段逐来源一致**、CSV 导出、战斗记录后台导入、
   队友快照往返，并给每个窗口截图。每次开跑前删掉测试用户目录里 Mod 的配置，测的是默认值
@@ -200,11 +206,11 @@ python tools/testpack/run_test.py --wave 18 --enemy-mult 3 --loadout "weapon_min
 python tools/testpack/summary.py                                    # 再看一遍上次的结果
 ```
 
-预览图（README 和创意工坊用）也由测试顺便生成，用一套打得热闹的配装：
+预览图（README 和创意工坊用）也由测试顺便生成，双人、用一套打得热闹的配装：
 
 ```bash
-python tools/testpack/run_test.py --lang zh --wave 9 --seconds 45 --preview preview-zh --loadout "weapon_plank_2,weapon_plank_2,weapon_torch_2,weapon_knife_1,weapon_flamethrower_2,weapon_shredder_1,item_riposte,item_turret_flame,item_scared_sausage,item_landmines"
-python tools/testpack/run_test.py --lang en --wave 9 --seconds 45 --preview preview-en --preview-sub "Damage meter · Co-op ready" --loadout "（同上）"
+python tools/testpack/run_test.py --lang zh --players 2 --wave 9 --seconds 45 --preview preview-zh --loadout "weapon_plank_2,weapon_plank_2,weapon_torch_2,weapon_knife_1,weapon_flamethrower_2,weapon_shredder_1,item_riposte,item_turret_flame,item_scared_sausage,item_landmines"
+python tools/testpack/run_test.py --lang en --players 2 --wave 9 --seconds 45 --preview preview-en --preview-sub "Damage meter · Co-op ready" --loadout "（同上）"
 ```
 
 生成在结果目录里，复制到 `docs/images/`；`docs/workshop/preview.png` 用中文那张。
@@ -213,7 +219,7 @@ python tools/testpack/run_test.py --lang en --wave 9 --seconds 45 --preview prev
 测试会弹出一个游戏窗口，跑完自己关，一次一分钟左右。
 
 结果里的 `perf` 是开销：伤害回调每次约 40 µs（压力测试每秒 125 次时合计每秒 5 ms），
-浮窗每次重绘约 0.6 ms（每秒 5 次），战斗记录约 1.4 ms（实时时每秒 2 次，操作时当帧重画），设置窗口约 1.9 ms（只在操作时画）。
+浮窗每次重绘约 0.5–1.2 ms（每秒 5 次，行越多越久），战斗记录约 1.4 ms（实时时每秒 2 次，操作时当帧重画），设置窗口约 1.9 ms（只在操作时画）。
 
 ---
 

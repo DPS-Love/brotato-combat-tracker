@@ -2,8 +2,8 @@
 
 [简体中文](README.md) | **English**
 
-A combat statistics panel for **Brotato**. A horizontal overlay that breaks down damage dealt, damage taken
-and healing per weapon and item; click any card for a donut-chart breakdown by hit form, target and crits;
+A combat statistics panel for **Brotato**. A vertical tree overlay that breaks down damage dealt, damage taken
+and healing per player, then per weapon and item; click any source for a donut-chart breakdown by hit form, target and crits;
 statistics segment automatically per wave; CSV export. An ACT-style combat log window lets you review every
 wave and list its individual events, and each session's combat events are saved to a log that can be imported
 and re-parsed. Everything can be set up in-game. The UI text follows the game's language.
@@ -52,17 +52,22 @@ Brotato\
 | `F10` | Reset the current statistics (splits the wave into a new encounter; the old one moves to the combat log) |
 | `F11` | Export the current encounter as a CSV |
 
-- Normally only the text (with a black outline) and the cards float over the game; move the cursor onto the overlay
+- The overlay is a vertical, multi-level list. Each row is a slanted bar sized by its value, with the name, per-second,
+  total and share:
+  - Co-op: **player → group → each source**; solo play skips the player level
+  - Groups: damage is split into **Weapons / Items / Other** (burning, explosions and the like that can't be tied to a
+    single source), damage taken into **Enemies / Elite / Boss / Other**, healing into **Stats / Items / Consumables / Other**
+  - Click a player or group row to fold or unfold it; each group lists up to 6 items (adjustable in the settings), the
+    rest become "n more"
+- Normally only the text (with a black outline) and the bars float over the game; move the cursor onto the overlay
   and its translucent background and title-bar buttons fade in
 - Overlay title bar: the log icon on the far left opens the combat log; on the right are the view switch
-  (**Damage / Taken / Healing**, plus **Sources / Players** with several players), reset and settings
-- **Click a card** for its breakdown window, a donut chart with a legend that scrolls past 7 items:
-  - Damage · source: forms (direct hit / burning / explosion / effect), targets (which enemies it hit), crits
-  - Damage · player: sources (weapons / items), classes (melee / ranged / elemental / engineering…), targets
-  - Taken: sources (which enemies hit you), outcomes (hit / dodged / blocked)
-  - Healing: sources (HP regeneration / life steal / items / consumables…)
+  (**Damage / Taken / Healing**), reset and settings
+- **Click a source row** for its breakdown window, a donut chart with a legend that scrolls past 7 items:
+  - Damage: forms (direct hit / burning / explosion / effect), targets (which enemies it hit), crits
+  - Taken: outcomes (hit / dodged / blocked)
 - Statistics segment per wave with the game's own wave titles, e.g. `Wave 5 · Elite`; replaying a failed wave adds a repeat number, e.g. `Wave 5 #2`
-- Identical weapons of the same tier share one card with a count, e.g. `SMG III ×2`
+- Identical weapons of the same tier share one row with a count, e.g. `SMG III ×2`
 - Every window can be dragged and remembers its position; hover over an icon button for a moment to see what it does
 
 The overlay only shows while a wave is running: it steps aside for the pause menu, the level-up choices after a wave
@@ -103,8 +108,8 @@ Open it with the log icon at the far left of the overlay's title bar (or `F8`). 
 
 ### Settings
 
-The gear in the overlay's or the combat log's title bar opens them: UI scale, card slant, window background opacity,
-overlay card count, icons, overlay in the shop, overkill and trees, how many encounters the combat log keeps,
+The gear in the overlay's or the combat log's title bar opens them: UI scale, bar slant, window background opacity,
+items per overlay group, icons, overlay in the shop, overkill and trees, how many encounters the combat log keeps,
 sharing stats online, combat logs, hotkeys and player colours can all be changed there and are saved to the config
 file right away. The two items marked "Needs restart" (combat logs) take effect the next time the game starts.
 
@@ -122,7 +127,7 @@ them in that folder. The format is documented in [combat log format](docs/eventl
 
 ## Co-op
 
-- **Local co-op**: every player on the machine is tracked. Card names carry `P1` / `P2`, and the small square in the corner is the player's colour
+- **Local co-op**: every player on the machine is tracked. The overlay groups everything by player, each player's row in their colour; the combat log can show sources or players
 - **BrotatoOnline (Workshop co-op mod)**: in an online session each machine only simulates its own player's hits,
   so no single machine sees the whole team's damage. Each player therefore tracks their own player and, every
   2 seconds, sends this wave's statistics to the teammates through BrotatoOnline's public mod-message API, plus a
@@ -145,10 +150,10 @@ directly, restart the game.
 | `ShowOverlay` | true | Show the overlay at startup |
 | `ShowInShop` | false | Also show the overlay in the shop (it shows the wave just finished) |
 | `UiScale` | 1.0 | UI scale |
-| `SkewDegrees` | -30 | Skew angle of the cards; `0` for plain rectangles |
+| `SkewDegrees` | -30 | Skew angle of the overlay's bars; `0` for plain rectangles |
 | `BackgroundOpacity` | 0.9 | Background opacity of the overlay, breakdown and combat log windows (0–1); the overlay shows its background only while the cursor is on it |
-| `MaxCards` | 5 | Max cards on the overlay; the rest are counted as `+n` in the title bar |
-| `ShowIcons` | true | Show weapon / item icons on the cards |
+| `MaxRows` | 6 | Most items listed under each overlay group (weapons / items / other…); the rest become "n more" |
+| `ShowIcons` | true | Show weapon / item icons on the overlay |
 | `CountOverkill` | false | Count overkill damage |
 | `IncludeTrees` | false | Count damage dealt to trees |
 | `HistorySize` | 200 | How many encounters of this session the combat log window keeps (older ones stay in the log file); `0` for no limit |

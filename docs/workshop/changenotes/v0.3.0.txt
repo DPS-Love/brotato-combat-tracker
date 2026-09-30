@@ -1,0 +1,14 @@
+[b]v0.3.0[/b]
+[list]
+[*]浮窗改为竖向多级列表：多人时按玩家分组，玩家 → 武器 / 物品 / 其他 → 各个来源；单人从分类开始
+[*]承伤按敌人 / 精英 / Boss 分组，治疗按属性回复 / 物品 / 消耗品分组
+[*]点玩家或分类那一行折叠 / 展开，点来源那一行打开拆分窗口
+[*]设置里的「浮窗卡片数」换成「每组最多几项」（默认 6）
+[/list]
+
+[list]
+[*]The overlay is now a vertical, multi-level list. In co-op it groups by player: player → weapons / items / other → each source; solo play starts at the groups
+[*]Damage taken is grouped into enemies / elite / boss, healing into stats / items / consumables
+[*]Click a player or group row to fold it, click a source row for its breakdown
+[*]The "Overlay cards" setting is replaced by "Items per group" (default 6)
+[/list]

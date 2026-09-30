@@ -266,28 +266,35 @@ python tools/testpack/run_test.py --lang en --players 2 --wave 9 --seconds 45 --
 ### 创意工坊
 
 用 `tools/workshop_upload.py`（64 位 Python；Steam 要开着、登录的是条目作者的账号）。
-它直接调游戏目录里 `steam_api64.dll` 的创意工坊接口，一次设好文件、预览图、标签、各语言的标题和说明，以及改动说明；
+它直接调游戏目录里 `steam_api64.dll` 的创意工坊接口，一次设好文件、预览图、标签、各语言的标题和说明，以及英文改动说明；
 借 Steam 客户端的登录，不需要账号密码，也不需要 `steam_appid.txt`。连着 Steam 的那一会儿，Steam 会显示在玩 Brotato。
 
 要传的东西都在 `docs/workshop/`：
 
 - `workshop.json`：条目号 [`3809733696`](https://steamcommunity.com/sharedfiles/filedetails/?id=3809733696)、标签、预览图，
-  各语言的标题和说明文件。语言用 Steam 的 API 语言代码（`english`、`schinese`、`tchinese`…）；
+  各语言的标题、说明文件和改动说明文件。语言用 Steam 的 API 语言代码（`english`、`schinese`、`tchinese`…）；
   没有单独标题和说明的语言显示英文那一份，所以 `english` 必须有
 - `description.*.txt`：说明，Steam 的 BBCode，UTF-8 下要少于 8000 字节（脚本会检查）
 - `preview.png`：预览图，要小于 1 MB
-- `changenotes/vX.Y.Z.txt`：这一版的改动说明（BBCode）。没有这个文件就用 `vX.Y.Z` 标签的注释，`- ` 开头的行转成列表
+- `changenotes/vX.Y.Z.en.txt`、`vX.Y.Z.zh.txt`：这一版的改动说明（BBCode），英文必须有
 
-1. 改好版本号，写好 `changenotes/vX.Y.Z.txt`；标题、说明、预览图有变化就一起改
+1. 改好版本号，写好这一版各语言的改动说明；标题、说明、预览图有变化就一起改
 2. `python tools/workshop_upload.py`：打包，列出要传的文件、标题、说明和改动说明，不连 Steam
 3. `python tools/workshop_upload.py --check`：连上 Steam，核对条目作者是登录的账号，逐个语言对比条目上现在的标题和说明，
    不改任何东西
 4. `python tools/workshop_upload.py --upload`：上传。英文以外的语言各自提交一次标题和说明（和条目上一样的跳过），
-   最后一次提交文件、预览图、标签、英文的标题和说明，带上改动说明；最后打印 `传好了`。
-   单独提交的语言不会在改动说明列表里留下空记录：上传 v0.3.0 时先提交了简体中文、紧接着提交文件和英文，
-   列表的英文和简体中文视图里都只多了带说明的那一条
+   最后一次提交文件、预览图、标签、英文的标题和说明，带上英文改动说明；打印 `传好了`
+5. 其他语言的改动说明接口提交不了（见下），脚本最后会列出来：到条目的改动说明页面编辑最新一条，按语言填上
 
-`--note 文件` 换一份改动说明，`--no-preview` 不换预览图，`--visibility public|friends|private|unlisted` 顺便改可见性，
+改动说明和标题、说明一样按语言存，但接口只能写一种语言。2026-10-01 用一个临时条目实测（试完已删）：
+
+- 文件有变化的提交会新建一条改动说明，说明记在这次提交的语言下；其他语言没有译文时都显示这一份
+  （用简体中文提交的那条，英文和繁体中文页面也显示中文）
+- 不传文件、或者文件没变的提交，带上的改动说明被丢掉，也不新建一条（简体中文和英文都试过），
+  所以给已有的一条补别的语言只能在网页上编辑
+- 只改标题和说明、不带改动说明的提交不新建一条，标题和说明按语言生效
+
+`--note 文件` 换一份英文改动说明，`--no-preview` 不换预览图，`--visibility public|friends|private|unlisted` 顺便改可见性，
 `--game 目录` 指定游戏目录（默认从 Steam 的各个库里找，也可以设环境变量 `BROTATO_GAME_DIR`）。
 账号没接受过创意工坊法律协议的话脚本最后会提示，接受之前条目对别人不可见。
 

@@ -1,4 +1,4 @@
-"""把 Mod 传到创意工坊：文件、预览图、标签、各语言的标题和说明、改动说明，一次设好。
+"""把 Mod 传到创意工坊：文件、预览图、标签、各语言的标题和说明、英文改动说明，一次设好。
 
 游戏自带的上传工具（GodotWorkshopUtility）只设文件、预览图、标签和英文标题（取 zip 的文件名），
 提交的改动说明是空的，其他语言的标题、各语言的说明都得传完再到网页上一项项改。
@@ -8,21 +8,24 @@
 也不用在游戏目录里放 steam_appid.txt（AppID 从环境变量交给 Steam）。
 连着 Steam 的这一会儿，Steam 会显示在玩 Brotato（官方工具也一样）。需要 64 位的 Python。
 
-要传的东西写在 docs/workshop/workshop.json：条目号、标签、预览图，各语言的标题和说明文件
+要传的东西写在 docs/workshop/workshop.json：条目号、标签、预览图，各语言的标题、说明文件和改动说明文件
 （语言用 Steam 的 API 语言代码：english、schinese、tchinese、japanese…；english 必须有，
-没有单独标题和说明的语言都显示英文那一份）。
+没有单独标题和说明的语言都显示英文那一份）。改动说明文件名里的 {version} 换成版本号，都是 Steam 的 BBCode。
 文件是 package.py 打的 build/workshop/ 下那个 zip，脚本先打一次包。
-改动说明默认取 docs/workshop/changenotes/v<版本>.txt，没有就取 v<版本> 标签的注释；都是 Steam 的 BBCode。
 
 Steam 一次提交只收一种语言的标题和说明：英文以外的语言各自提交一次（和条目上现在的一样就跳过），
-最后一次提交文件、预览图、标签、英文的标题和说明，带上改动说明。
+最后一次提交文件、预览图、标签、英文的标题和说明，带上英文改动说明。
+
+改动说明只能跟着文件有变化的那次提交写进去：新建一条记录，记在这次提交的语言下，别的语言没有译文时都显示这一份；
+不传文件或文件没变的提交，带上的改动说明会被丢掉（实测见 docs/DEVELOPMENT.md）。
+所以其他语言的改动说明只能在网页上编辑这一条时补，脚本传完会把它们列出来。
 
 用法：
   python tools/workshop_upload.py            # 打包，列出要传的东西，不连 Steam
   python tools/workshop_upload.py --check    # 再连上 Steam，对比条目上现在的标题和说明，不改任何东西
   python tools/workshop_upload.py --upload   # 上传
 选项：
-  --note 文件                                   改动说明换成这个文件
+  --note 文件                                   英文改动说明换成这个文件
   --no-preview                                  不换预览图
   --visibility public|friends|private|unlisted  顺便改可见性（默认不动）
   --game 目录                                   游戏目录（找 steam_api64.dll），默认自动找，见 gamedir.py
@@ -31,7 +34,6 @@ import argparse
 import ctypes
 import json
 import os
-import re
 import subprocess
 import sys
 import time
@@ -44,7 +46,6 @@ import gamedir  # noqa: E402
 CONFIG = os.path.join(REPO, "docs", "workshop", "workshop.json")
 MANIFEST = os.path.join(REPO, "mods-unpacked", "DPSLove-CombatTracker", "manifest.json")
 CONTENT_DIR = os.path.join(REPO, "build", "workshop")
-NOTES_DIR = os.path.join(REPO, "docs", "workshop", "changenotes")
 AGREEMENT_URL = "https://steamcommunity.com/sharedfiles/workshoplegalagreement"
 
 VISIBILITY = {"public": 0, "friends": 1, "private": 2, "unlisted": 3}
@@ -104,7 +105,15 @@ def load_plan(args):
         for what, text, buf in (("标题", title, TITLE_BUF), ("说明", desc, DESCRIPTION_BUF)):
             if utf8_len(text) >= buf:
                 fail("%s 的%s有 %d 字节，Steam 最多收 %d" % (code, what, utf8_len(text), buf - 1))
-        langs.append({"code": code, "title": title, "description": desc, "file": entry["description"]})
+        note_file = entry.get("changenote", "").format(version=version)
+        note = read_text(repo_path(note_file)) if note_file and os.path.isfile(repo_path(note_file)) else None
+        langs.append({"code": code, "title": title, "description": desc, "file": entry["description"],
+                      "note": note, "note_file": note_file})
+    en = english(langs)
+    if args.note:
+        en["note"], en["note_file"] = read_text(args.note), args.note
+    if not en["note"]:
+        fail("没有英文改动说明：写 %s，或用 --note 指定" % (en["note_file"] or "workshop.json 里 english 的 changenote"))
 
     preview = None
     if not args.no_preview:
@@ -114,7 +123,6 @@ def load_plan(args):
         if os.path.getsize(preview) >= PREVIEW_MAX:
             fail("预览图要小于 1 MB")
 
-    note, note_from = change_note(args, version)
     return {
         "app_id": int(cfg["app_id"]),
         "item_id": int(cfg["item_id"]),
@@ -122,48 +130,12 @@ def load_plan(args):
         "version": version,
         "preview": preview,
         "languages": langs,
-        "note": note,
-        "note_from": note_from,
         "visibility": args.visibility,
     }
 
 
-def change_note(args, version):
-    if args.note:
-        return read_text(args.note), args.note
-    path = os.path.join(NOTES_DIR, "v%s.txt" % version)
-    if os.path.isfile(path):
-        return read_text(path), os.path.relpath(path, REPO)
-    # 退回 v<版本> 标签的注释：去掉署名，「- 」开头的行换成 BBCode 列表
-    try:
-        out = subprocess.run(["git", "tag", "-l", "--format=%(contents)", "v" + version],
-                             cwd=REPO, capture_output=True, text=True, encoding="utf-8").stdout
-    except OSError:
-        out = ""
-    lines = [l for l in out.splitlines() if not l.startswith("Co-Authored-By:")]
-    text = "\n".join(lines).strip()
-    if not text:
-        fail("没有改动说明：写 docs/workshop/changenotes/v%s.txt，或用 --note 指定" % version)
-    return bullets_to_bbcode(text), "标签 v%s 的注释" % version
-
-
-def bullets_to_bbcode(text):
-    out, in_list = [], False
-    for line in text.splitlines():
-        m = re.match(r"^\s*[-*]\s+(.*)$", line)
-        if m:
-            if not in_list:
-                out.append("[list]")
-                in_list = True
-            out.append("[*]" + m.group(1))
-            continue
-        if in_list:
-            out.append("[/list]")
-            in_list = False
-        out.append(line)
-    if in_list:
-        out.append("[/list]")
-    return "\n".join(out)
+def english(langs):
+    return next(l for l in langs if l["code"] == "english")
 
 
 def package():
@@ -201,9 +173,17 @@ def show(plan, zip_path):
     print("可见性    %s" % (plan["visibility"] or "不动"))
     for l in plan["languages"]:
         print("%-9s 标题「%s」，说明 %s（%d 字节）" % (l["code"], l["title"], l["file"], utf8_len(l["description"])))
-    print("改动说明  来自 %s：" % plan["note_from"])
-    for line in plan["note"].splitlines():
+    en = english(plan["languages"])
+    print("改动说明  english 跟文件一起提交，%s：" % en["note_file"])
+    for line in en["note"].splitlines():
         print("    " + line)
+    for l in plan["languages"]:
+        if l is en:
+            continue
+        if l["note"]:
+            print("改动说明  %s 接口提交不了，传完到网页上补：%s" % (l["code"], l["note_file"]))
+        else:
+            print("改动说明  %s 没有，这一语言显示英文那份" % l["code"])
     dirty = dirty_mod_files()
     if dirty:
         print("注意：mods-unpacked 下有没提交的改动，传上去的是工作区里的版本：")
@@ -439,7 +419,7 @@ def main():
     ap = argparse.ArgumentParser(description="把 Mod 传到创意工坊")
     ap.add_argument("--upload", action="store_true", help="上传（不加只列出要传的东西）")
     ap.add_argument("--check", action="store_true", help="连上 Steam 对比条目现在的标题和说明，不改任何东西")
-    ap.add_argument("--note", default="", help="改动说明文件（BBCode）")
+    ap.add_argument("--note", default="", help="英文改动说明文件（BBCode）")
     ap.add_argument("--no-preview", action="store_true", help="不换预览图")
     ap.add_argument("--visibility", choices=sorted(VISIBILITY), default=None, help="顺便改可见性")
     ap.add_argument("--game", default="", help="游戏目录，找 steam_api64.dll")
@@ -466,26 +446,33 @@ def main():
 
         print()
         needs_agreement = False
-        # 英文以外的语言：各提交一次标题和说明，不带改动说明
+        # 英文以外的语言：各提交一次标题和说明；不传文件的提交带改动说明也会被丢掉，所以不带
+        en = english(plan["languages"])
         for l in plan["languages"]:
-            if l["code"] == "english":
+            if l is en:
                 continue
             if l["code"] not in changed:
                 print("  %s：标题和说明都没变，跳过" % l["code"])
                 continue
             needs_agreement |= steam.submit(plan["item_id"], l["code"], l["code"], l["title"], l["description"])
-        # 最后一次：文件、预览图、标签、可见性、英文的标题和说明，带上改动说明
-        en = next(l for l in plan["languages"] if l["code"] == "english")
+        # 最后一次：文件、预览图、标签、可见性、英文的标题和说明，带上英文改动说明
         visibility = VISIBILITY[plan["visibility"]] if plan["visibility"] else None
         needs_agreement |= steam.submit(plan["item_id"], "english + 文件", "english", en["title"], en["description"],
                                         content=CONTENT_DIR, preview=plan["preview"], tags=plan["tags"],
-                                        visibility=visibility, note=plan["note"])
+                                        visibility=visibility, note=en["note"])
     finally:
         steam.shutdown()
 
     print("\n传好了：https://steamcommunity.com/sharedfiles/filedetails/?id=%d" % plan["item_id"])
     if needs_agreement:
         print("账号还没接受创意工坊法律协议，接受之前条目对别人不可见：" + AGREEMENT_URL)
+    pending = [l for l in plan["languages"] if l is not en and l["note"]]
+    if pending:
+        print("\n其他语言的改动说明要到网页上补：打开下面的页面，编辑最新一条，按语言填上。")
+        print("https://steamcommunity.com/sharedfiles/filedetails/changelog/%d" % plan["item_id"])
+        for l in pending:
+            print("\n%s（%s）：" % (l["code"], l["note_file"]))
+            print(l["note"])
 
 
 if __name__ == "__main__":

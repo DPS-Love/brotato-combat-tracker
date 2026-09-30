@@ -6,11 +6,13 @@
 	"languages": {
 		"english": {
 			"title": "Brotato Combat Tracker - DPS Meter",
-			"description": "docs/workshop/description.en.txt"
+			"description": "docs/workshop/description.en.txt",
+			"changenote": "docs/workshop/changenotes/v{version}.en.txt"
 		},
 		"schinese": {
 			"title": "Brotato Combat Tracker - 伤害统计",
-			"description": "docs/workshop/description.zh.txt"
+			"description": "docs/workshop/description.zh.txt",
+			"changenote": "docs/workshop/changenotes/v{version}.zh.txt"
 		}
 	}
 }

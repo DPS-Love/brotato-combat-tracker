@@ -18,9 +18,11 @@ mods-unpacked/DPSLove-CombatTracker/   Mod 本体，发布包里就是这个目�
 └── ui/                         浮窗、拆分窗口、战斗记录、设置，全部自绘；skin 是配色 / 字体 / 画法
 tools/
 ├── package.py                  打包，核对版本号
+├── workshop_upload.py          上传创意工坊：文件、预览图、标签、各语言的标题和说明、改动说明
+├── gamedir.py                  找游戏目录（Steam 的各个库）
 ├── pck.py / gdc.py             解包游戏、把编译过的脚本还原成源码（对齐用）
 └── testpack/                   隔离测试包与自动测试
-docs/                           文档；workshop/ 下是创意工坊的文案和预览图
+docs/                           文档；workshop/ 下是创意工坊的上传配置、文案、预览图和各版本的改动说明
 ```
 
 `core/` 不引用游戏和 Mod Loader 的任何全局类：导入日志时解析器在后台线程里跑，而且游戏哪天改了类名，
@@ -261,29 +263,35 @@ python tools/testpack/run_test.py --lang en --players 2 --wave 9 --seconds 45 --
 
 ### 创意工坊
 
-用游戏目录里自带的 `GodotWorkshopUtility.exe`（Steam 要开着、登录的是上传者的账号）。
+用 `tools/workshop_upload.py`（64 位 Python；Steam 要开着、登录的是条目作者的账号）。
+它直接调游戏目录里 `steam_api64.dll` 的创意工坊接口，一次设好文件、预览图、标签、各语言的标题和说明，以及改动说明；
+借 Steam 客户端的登录，不需要账号密码，也不需要 `steam_appid.txt`。连着 Steam 的那一会儿，Steam 会显示在玩 Brotato。
 
-这个工具不经 Steam 启动，自己不知道是哪个游戏：游戏目录里要有一个 `steam_appid.txt`，内容是 Brotato 的 AppID
-`1942280`。没有的话日志第一行是 `Steam could not initialize: … No appID found …`，之后点 Upload
-只会停在 `creating new workshop item…`，Steam 上什么也不会建。这个文件留着不影响从 Steam 启动游戏。
+要传的东西都在 `docs/workshop/`：
 
-1. `python tools/package.py`，用 `build/workshop/` 下那个 zip。**它的文件名就是创意工坊的英文标题**：
-   上传工具每次上传都用文件名设置标题，但不指定语言，Steam 就记在英文下（没有单独标题的语言也显示英文标题）；
-   简体中文等其他语言的标题、各语言的说明都不动。所以文件名固定为页面上的英文标题、不带版本号；
-   在页面上改了英文标题，要同步改 `tools/package.py` 的 `WORKSHOP_TITLE`，否则下次上传又被改回去
-2. 打开上传工具，日志第一行应当是 `Steam initialization OK!`
-3. 选 zip；第一次上传、或者预览图换过时选预览图 `docs/workshop/preview.png`（不选就不动页面上的图）；标签选 **GUI** 和 **Utilities**
-4. Workshop ID 填本 Mod 的条目 [`3809733696`](https://steamcommunity.com/sharedfiles/filedetails/?id=3809733696)，
-   点 Upload，日志出现 `Uploading workshop item with ID …`、`Item successfully uploaded.` 就是传好了。
-   留空会另建一个新条目（日志先出现 `Workshop item created successfully…`，新 ID 自动填进输入框）
-5. 到创意工坊页面按语言分别编辑标题和说明（说明是 Steam 的 BBCode）：
-   - 英文：标题 `Brotato Combat Tracker - DPS Meter`，说明贴 `docs/workshop/description.en.txt`
-   - 简体中文：标题 `Brotato Combat Tracker - 伤害统计`，说明贴 `docs/workshop/description.zh.txt`
+- `workshop.json`：条目号 [`3809733696`](https://steamcommunity.com/sharedfiles/filedetails/?id=3809733696)、标签、预览图，
+  各语言的标题和说明文件。语言用 Steam 的 API 语言代码（`english`、`schinese`、`tchinese`…）；
+  没有单独标题和说明的语言显示英文那一份，所以 `english` 必须有
+- `description.*.txt`：说明，Steam 的 BBCode，UTF-8 下要少于 8000 字节（脚本会检查）
+- `preview.png`：预览图，要小于 1 MB
+- `changenotes/vX.Y.Z.txt`：这一版的改动说明（BBCode）。没有这个文件就用 `vX.Y.Z` 标签的注释，`- ` 开头的行转成列表
 
-   更新说明也在页面上写（上传工具提交的更新说明是空的）；新条目确认没问题后把可见性改成公开
+1. 改好版本号，写好 `changenotes/vX.Y.Z.txt`；标题、说明、预览图有变化就一起改
+2. `python tools/workshop_upload.py`：打包，列出要传的文件、标题、说明和改动说明，不连 Steam
+3. `python tools/workshop_upload.py --check`：连上 Steam，核对条目作者是登录的账号，逐个语言对比条目上现在的标题和说明，
+   不改任何东西
+4. `python tools/workshop_upload.py --upload`：上传。英文以外的语言各自提交一次标题和说明（和条目上一样的跳过），
+   最后一次提交文件、预览图、标签、英文的标题和说明，带上改动说明；最后打印 `传好了`
 
-上传工具只设英文标题、预览图、标签和文件，不设说明，也不设可见性；新条目默认不公开。账号没接受过创意工坊法律协议的话，
-接受之前条目对别人不可见，条目页面上会有提示。
+`--note 文件` 换一份改动说明，`--no-preview` 不换预览图，`--visibility public|friends|private|unlisted` 顺便改可见性，
+`--game 目录` 指定游戏目录（默认从 Steam 的各个库里找，也可以设环境变量 `BROTATO_GAME_DIR`）。
+账号没接受过创意工坊法律协议的话脚本最后会提示，接受之前条目对别人不可见。
+
+备用：游戏目录里自带的 `GodotWorkshopUtility.exe`。它不经 Steam 启动，游戏目录里要有 `steam_appid.txt`，内容是 `1942280`，
+否则日志第一行是 `Steam could not initialize: … No appID found …`，点 Upload 只会停在 `creating new workshop item…`。
+选 `build/workshop/` 下的 zip，Workshop ID 填 `3809733696`（留空会另建一个新条目）。
+它只设文件、预览图、标签和英文标题：标题取 zip 的文件名，所以 `package.py` 用 `workshop.json` 里的英文标题给 zip 命名。
+提交的改动说明是空的；其他语言的标题、各语言的说明和改动说明要到条目页面上改。
 
 ---
 

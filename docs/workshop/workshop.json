@@ -1,0 +1,16 @@
+{
+	"app_id": 1942280,
+	"item_id": 3809733696,
+	"tags": ["GUI", "Utilities"],
+	"preview": "docs/workshop/preview.png",
+	"languages": {
+		"english": {
+			"title": "Brotato Combat Tracker - DPS Meter",
+			"description": "docs/workshop/description.en.txt"
+		},
+		"schinese": {
+			"title": "Brotato Combat Tracker - 伤害统计",
+			"description": "docs/workshop/description.zh.txt"
+		}
+	}
+}

@@ -6,10 +6,9 @@ zip 里只有 mods-unpacked/DPSLove-CombatTracker/ 这一个目录（Mod Loader 
 时间戳固定、不压缩（压缩结果随 zlib 版本而变），同样的源码在任何机器上打出来都逐字节相同，
 本机打的包和 CI 发布的包可以直接比对哈希。
 
-创意工坊那份单独起名：游戏自带的上传工具（GodotWorkshopUtility）每次上传都拿 zip 的文件名设置条目标题，
-但不指定语言，Steam 就记在英文下（没有单独标题的语言也显示英文标题；其他语言的标题、各语言的说明都不动）。
-所以文件名要和创意工坊页面上的英文标题一致，而且不能带版本号；页面上改了英文标题，WORKSHOP_TITLE 也要跟着改。
-build/workshop/ 里只留这一个 zip，免得上传时选到旧名字的那份。
+创意工坊那份用 docs/workshop/workshop.json 里的英文标题命名：tools/workshop_upload.py 自己设标题，文件名无所谓；
+但游戏自带的上传工具（GodotWorkshopUtility）每次上传都拿 zip 的文件名设置英文标题，用它传的时候文件名就得是英文标题、
+不能带版本号。build/workshop/ 里只留这一个 zip，两个工具传的都是整个目录。
 
 同时核对版本号：manifest.json 的 version_number 必须和 game/tracker.gd 里的 VERSION 一致；
 给了 --tag 时还要和标签（vX.Y.Z）一致。
@@ -32,7 +31,7 @@ MOD_DIR = os.path.join(REPO, "mods-unpacked", MOD_ID)
 INCLUDE_EXT = {".gd", ".json", ".png", ".txt", ".cfg"}
 EXTRA_FILES = {"LICENSE": os.path.join(REPO, "LICENSE")}
 FIXED_TIME = (2026, 1, 1, 0, 0, 0)
-WORKSHOP_TITLE = "Brotato Combat Tracker - DPS Meter"
+WORKSHOP_JSON = os.path.join(REPO, "docs", "workshop", "workshop.json")
 
 
 def versions():
@@ -41,6 +40,11 @@ def versions():
     with open(os.path.join(MOD_DIR, "game", "tracker.gd"), encoding="utf-8") as f:
         m = re.search(r'^const VERSION = "([^"]+)"', f.read(), re.M)
     return manifest["version_number"], (m.group(1) if m else None)
+
+
+def workshop_title():
+    with open(WORKSHOP_JSON, encoding="utf-8") as f:
+        return json.load(f)["languages"]["english"]["title"]
 
 
 def collect():
@@ -89,7 +93,7 @@ def main():
     for name in os.listdir(workshop_dir):
         if name.lower().endswith(".zip"):
             os.remove(os.path.join(workshop_dir, name))
-    workshop = os.path.join(workshop_dir, WORKSHOP_TITLE + ".zip")
+    workshop = os.path.join(workshop_dir, workshop_title() + ".zip")
     shutil.copyfile(out, workshop)
 
     print(out)

@@ -7,7 +7,8 @@
   - 追加一个自动加载的测试驱动（bct_test/driver.gd），自动开局、截图、核对、退出
 
 用法：
-  python tools/testpack/build_testpack.py [--game "E:/SteamLibrary/steamapps/common/Brotato"] [--out build/testpack]
+  python tools/testpack/build_testpack.py [--game DIR] [--out build/testpack]
+不给 --game 就自动找游戏目录（见 tools/gamedir.py）。
 """
 import argparse
 import hashlib
@@ -17,6 +18,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
+sys.path.insert(0, os.path.join(REPO, "tools"))
+import gamedir  # noqa: E402
 
 USER_DIR_NAME = "BrotatoBCTTest"
 DRIVER_PATH = "res://bct_test/driver.gd"
@@ -125,9 +128,10 @@ feature_override_options = {
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--game", default="E:/SteamLibrary/steamapps/common/Brotato")
+    ap.add_argument("--game", default="")
     ap.add_argument("--out", default=os.path.join(REPO, "build", "testpack"))
     args = ap.parse_args()
+    args.game = args.game or gamedir.find_game_dir("--game")
 
     src = os.path.join(args.game, "Brotato.pck")
     os.makedirs(args.out, exist_ok=True)

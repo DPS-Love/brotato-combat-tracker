@@ -208,6 +208,8 @@ python tools/testpack/run_test.py --wave 18 --enemy-mult 3 --loadout "weapon_min
 python tools/testpack/summary.py                                    # 再看一遍上次的结果
 ```
 
+游戏目录默认从 Steam 的各个库里找（`tools/gamedir.py`），也可以设环境变量 `BROTATO_GAME_DIR`，或用 `--game` 指定。
+
 预览图（README 和创意工坊用）也由测试顺便生成，双人、用一套打得热闹的配装：
 
 ```bash

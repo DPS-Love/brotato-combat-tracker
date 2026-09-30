@@ -9,6 +9,7 @@
 
 用法：
   python tools/testpack/run_test.py [--game DIR] [--lang zh|en] [--with MOD.zip ...] [--wave 3] [--seconds 40]
+不给 --game 就自动找游戏目录（见 tools/gamedir.py）。
 """
 import argparse
 import glob
@@ -23,6 +24,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 BUILD = os.path.join(REPO, "build")
 USER_DIR = os.path.join(os.environ.get("APPDATA", ""), "BrotatoBCTTest")
+sys.path.insert(0, os.path.join(REPO, "tools"))
+import gamedir  # noqa: E402
 
 
 def newest(paths):
@@ -31,7 +34,7 @@ def newest(paths):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--game", default="E:/SteamLibrary/steamapps/common/Brotato")
+    ap.add_argument("--game", default="")
     ap.add_argument("--lang", default="zh")
     ap.add_argument("--with", dest="extra", action="append", default=[], help="同时加载的其它 Mod zip（比如 BrotatoOnline）")
     ap.add_argument("--wave", default="3")
@@ -43,6 +46,7 @@ def main():
     ap.add_argument("--preview-sub", default="")
     ap.add_argument("--timeout", type=int, default=180)
     args = ap.parse_args()
+    args.game = args.game or gamedir.find_game_dir("--game")
 
     # 1. 打包（输出到管道时 Python 默认用系统代码页，简体中文系统是 GBK，让它改用 UTF-8）
     out = subprocess.run([sys.executable, os.path.join(REPO, "tools", "package.py"), "--out", BUILD],
